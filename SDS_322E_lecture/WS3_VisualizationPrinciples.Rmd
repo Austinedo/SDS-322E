@@ -1,0 +1,354 @@
+    ---
+title: "Worksheet 3: Visualization Principles"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+This semester we will learn how to make different types of visualizations to explore our data. In this worksheet, we will get familiar with principles of `ggplot`. 
+
+## 1. Dataset
+
+We will consider the built-in dataset `quakes` again. It contains information about earthquakes occurring near Fiji islands since 1964. To refresh our memory, let's take a look:
+
+```{r}
+# Take a look at the data frame
+head(quakes)
+```
+
+We will keep exploring this dataset, using `ggplot` so we need to upload the library `tidyverse` containing all related functions:
+
+```{r}
+# Upload the library
+library(tidyverse)
+
+# Note: If you are using RStudio ON YOUR OWN COMPUTER AND HAVE NEVER USED ggplot2, you will need to install it first using install.packages("tidyverse")
+```
+
+## 2. Create a `ggplot`
+
+Let's first represent where the earthquakes occurred by representing longitude vs latitude.
+
+### a. Define a plot
+
+The `ggplot()` function helps us build a graph. Within this function, we specify the dataframe to explore:
+
+```{r}
+# Create a ggplot
+ggplot(data = quakes)
+```
+
+Well, it's empty because we haven't specified how to represent the variables in the `quakes` object...
+
+### b. Add a geometric object
+
+The `geom_...()` functions helps us define how to represent the variables with geometric objects (points, lines, bars, etc.). For example, `geom_point()` can represent our data with points:
+
+```{r, eval = FALSE}
+# Create a ggplot with a geometric object
+ggplot(data = quakes) +
+  geom_point()
+```
+
+Well, it does not work because we haven't specified which variables to represent...
+
+### c. Define the mapping
+
+Using `aes()`, aesthetics, we can define the mapping of the variables to each aesthetic of the plot. We can either define the aesthetics for each geometric object or for the whole plot:
+
+```{r}
+# Create a ggplot with mapping variables to a geometric object
+ggplot(data = quakes) +
+  geom_point(aes(x = long, y = lat))
+
+# which here is equivalent to:
+ggplot(data = quakes, aes(x = long, y = lat)) +
+  geom_point()
+
+# Note the importance of placing "+" correctly
+```
+
+You can add many layers to the `ggplot` and it is a good practice to put the new layers on a new line (be sure to end a line with +).
+
+```{r}
+# Add layers to the plot
+ggplot(data = quakes, aes(x = long, y = lat)) + 
+  geom_point() + 
+  geom_line() 
+
+# Note that we would have to define the mapping for each geom if not specified as a whole
+ggplot(data = quakes) + 
+  geom_point(aes(x = long, y = lat)) + 
+  geom_line(aes(x = long, y = lat)) # what happens if we don't define aesthetics?
+```
+
+Note that graphs can be saved as an R object and manipulated further:
+
+```{r}
+# Save a version of our graph
+myplot <- ggplot(data = quakes, aes(x = long, y = lat)) + 
+  geom_point()
+
+# Display the graph
+myplot
+```
+
+Then we can add layers if we would like: 
+
+```{r}
+# Add some layers to our saved graph
+myplot + geom_line()
+```
+
+We can change the appearance of some characteristics of the geometric object directly when we define this object. Let's change the color of the points to make them all blue:
+
+```{r}
+# Create a ggplot with mapping variables to a geometric object
+ggplot(data = quakes, aes(x = long, y = lat)) +
+  geom_point(color = "blue") # blue points
+```
+
+Other options such as `size =` and `alpha =` can be applied within a geometric object. Both of these options take numeric values.
+
+#### **Try it! Input numeric values for `size =` and `alpha =` in `geom_point()`. What do these options control?**
+
+```{r}
+# Write and submit code here!
+myplot + geom_point(size = 5, alpha = 0.1)
+```
+
+**Write sentences here!**
+
+
+### d. Try more mapping
+
+We can add color and other types of aesthetics depending on the values of some variables. For example, let's control the size of the points by the magnitude of the earthquake:
+
+```{r}
+# Map the color to the mag variable 
+ggplot(data = quakes, aes(x = long, y = lat, color = mag)) +
+  geom_point()
+
+# Or equivalent
+ggplot(data = quakes, aes(x = long, y = lat)) +
+  geom_point(aes(color = mag))
+```
+
+We will talk later about color palettes.
+
+#### **Try it! Instead of coloring the points by magnitude, color the points by depth. Anything you notice in this graph?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = quakes, aes(x = long, y = lat)) + geom_point(aes(color = depth))
+```
+
+**Write sentences here!**
+The quakes with the lowest depth is concentrated in one area
+
+In the last worksheet, we created a new variable to separate each trench:
+
+```{r}
+# Create a new variable
+mutate(quakes, trench = ifelse(quakes$long < 175,
+                         "New Hebrides", "Tonga and Kermadec"))
+```
+
+Let's use a pipe `|>` to create the `trench` variable in `quakes` then use another pipe `|>` to create a plot differentiating the color of the points per trench:
+
+```{r}
+# Use a pipe to apply a function to the object quakes
+quakes |> 
+  # Create a new variable called trench
+  mutate(trench = ifelse(long < 175, "New Hebrides", "Tonga and Kermadec")) |> 
+  # Create a plot
+  ggplot() + # does not need to specify dataframe
+  geom_point(aes(x = long, y = lat, color = trench))
+
+# How does the legend of color differ from before? Try the shape aesthetics!
+```
+
+### e. Add labels and controlling scales
+
+Plots should be easy to interpret and informative labels are a key element in achieving this goal. The `labs()` function provides customized labels for titles, axes, legends, etc.:
+
+```{r}
+# Build a plot...
+ggplot(data = quakes, aes(x = long, y = lat, color = depth)) + 
+  geom_point() +
+  # ...and add labels
+  labs(title = "Distribution of the depth across the trenches",
+       subtitle = "For eathrquakes that occurred near the Fiji Islands since 1964",
+       caption = "Data obtained from Dr. John Woodhouse, Dept. of Geophysics, Harvard University",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Depth (km)")
+```
+
+We can also control the scales for a better readibility with functions starting with `scale_`:
+
+```{r}
+# Build a plot...
+ggplot(data = quakes, aes(x = long, y = lat, color = depth)) + 
+  geom_point() +
+  # ...and adjust scales
+  scale_x_continuous(limits = c(160,190), breaks = seq(160, 190, 2)) + # limits between 160 and 190, show tick marks every 2 degrees
+  scale_y_continuous(limits = c(-40,-10), breaks = seq(-40, -10, 5)) # limits between -40 and -10, show tick marks every 5 degrees
+```
+
+There are two earthquakes near Lat -18 and -16 degrees and Long 177 and 178 degrees, respectively, that may belong to the trench on the left (New Hebrides).  
+
+#### **Try it! Redefine the `trench` variable to include these two earthquakes in New Hebrides. Then create a `ggplot` representing the location of the earthquakes, colored by depth and shaped by trench. While you're at it, add labels and adjust the scales.**
+
+```{r}
+# Write and submit code here!
+quakes |> 
+    mutate(trench = ifelse(long < 178 & lat > -25, 'New Herbrides', 'Tonga and Kermadec')) |> 
+    ggplot(aes(x = long, y = lat)) + 
+    geom_point(aes(color = depth, shape = trench)) + 
+    scale_x_continuous(limits = c(160, 190), breaks = seq(160, 190, 2)) + 
+    scale_y_continuous(limits = c(-40, -10), breaks = seq(-40, -10, 5)) + 
+    labs(title = 'Depth of the earthquakes from New Herbrides and Tonga/Kermadec', 
+         subtitle = 'For earthquakes that occurs near the Fiji islands since 1964',
+         x = 'Longitude',
+         y = 'Latitude')
+```
+
+
+
+### f. Facet
+
+Faceting reproduce a graph for each level of another variable (or combination of variables) and are created using functions that start with `facet_`. Let's take a look at the map for three categories of depths:
+
+```{r}
+quakes |> 
+  # Create a variable called depth_cat
+  mutate(depth_cat = ifelse(depth >= 300, 
+                            # Value if TRUE
+                            "Deep", 
+                            # Value if FALSE (so less than 300 km)
+                            ifelse(depth < 70, "Shallow", "Intermediate"))) |> 
+  # Create a plot
+  ggplot() + 
+  geom_point(aes(x = long, y = lat, color = depth_cat)) +
+  # Facet by trench
+  facet_wrap(~depth_cat)
+```
+
+#### **Try it! Investigate the relationship between the magnitude and the number of stations that reported the earthquake and compare this relationship across the two trenches. You can use `geom_smooth()` to identify a trend for each trench. Anything you noticed in this graph?**
+
+```{r}
+# Write and submit code here!
+quakes |> 
+    mutate(trench = ifelse(long < 178 & lat > -25, 'New Herbrides', 'Tonga and Kermadec')) |>
+    ggplot(aes(x = mag, y = stations)) + 
+    geom_point(aes(color = trench, alpha = 0.1)) +
+    facet_wrap(~trench)
+
+quakes |> 
+    mutate(trench = ifelse(long < 178 & lat > -25, 'New Herbrides', 'Tonga and Kermadec')) |>
+    ggplot(aes(x = mag, y = stations)) + 
+    geom_smooth(aes(color = trench, alpha = 0.1)) +
+    facet_wrap(~trench)
+    
+```
+
+**Write sentences here!**
+The Tonga and Kermadec had a higher number of stations that reported earth quakes, especially for lower magnitude earth quakes
+
+## 3. Choose a color palette and theme
+
+We can customize many aspects of our graphs by hand (colors, scales, background color, grid, ...) or we can use some themes or palettes other than the defaults.
+
+### a. Color palettes
+
+To define our own palette of colors, we can use `scale_color_gradient()` with setting the color for *low* values and another color for *high* values:
+
+```{r}
+# Compare values of magnitude (low: not too dangerous, high: more dangerous)
+  ggplot(quakes, aes(x = long, y = lat, color = mag)) + 
+  geom_point() +
+  # Change the color palette
+  scale_color_gradient(low = "yellow", high = "darkred")
+```
+
+#### **Try it! Display the depth of earthquakes depending on their location and choosing an appropriate color palette.**
+
+```{r}
+# Write and submit code here!
+ggplot(quakes, aes(x = long, y = lat)) +
+    geom_point(aes(color = depth)) +
+    scale_color_gradient(low = 'orange', high = 'blue')
+```
+
+**Write sentences here!**
+
+
+Here is a list of some of the discrete palettes that exist:
+
+```{r}
+RColorBrewer::display.brewer.all(type="seq")
+```
+
+We can use `scale_color_brewer()` when we are mapping a variable to the aesthetic `color =`:
+
+```{r}
+quakes |> 
+  # Create a variable called depth_cat
+  mutate(depth_cat = ifelse(depth >= 300, "Deep", 
+                            ifelse(depth < 70, "Shallow", "Intermediate"))) |> 
+  # Compare categories of depth
+  ggplot(aes(x = long, y = lat, color = depth_cat)) + 
+  geom_point() +
+  # Change the color palette
+  scale_color_brewer(palette = "Oranges")
+```
+
+Or we can create our own set of colors!
+
+```{r}
+# List of color blind friendly colors
+color_blind_friendly <- c("#999999", "#E69F00", "#56B4E9",
+                          "#009E73", "#F0E442", "#0072B2",
+                          "#D55E00", "#CC79A7")
+
+# Same graph as before but using color blind 
+quakes |> 
+  # Create a variable called depth_cat
+  mutate(depth_cat = ifelse(depth >= 300, "Deep", 
+                            ifelse(depth < 70, "Shallow", "Intermediate"))) |> 
+  # Compare categories of depth
+  ggplot(aes(x = long, y = lat, color = depth_cat)) + 
+  geom_point() +
+  # Choose colors saved in our object `color_blind_friendly`
+  scale_color_manual(values = color_blind_friendly)
+```
+
+### b. Themes
+
+There are so many adjustments we can make to our `ggplot` (change background color, color of axis, color of font, ...) and sometimes it is easier to use some predefined themes:
+
+```{r}
+# Still same plot
+  ggplot(quakes, aes(x = long, y = lat, color = depth)) + 
+  geom_point() +
+  # Use the default theme_minimal()
+  theme_minimal()
+```
+
+Visit this website to find a list of all themes available: <https://ggplot2.tidyverse.org/reference/ggtheme.html>

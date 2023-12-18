@@ -1,0 +1,279 @@
+---
+title: "HW 5"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+
+# Upload packages
+library(tidyverse)
+library(rvest)
+library(tidytext)
+library(textdata)
+```
+
+### Enter your name and EID here: Austine Do (ahd589)
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+------------------------------------------------------------------------
+
+## Part 1
+
+We will work with data from the following article:
+
+Hickey, W. (2007). The Ultimate Halloween Candy Power Ranking. FiveThirtyEight. <https://fivethirtyeight.com/videos/the-ultimate-halloween-candy-power-ranking/>
+
+```{r}
+# Upload data from github
+candy <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//Halloween-candy.csv")
+
+# Take a quick look
+head(candy)
+```
+
+This dataset is the result of an experiment: "Pit dozens of fun-sized candy varietals against one another, and let the wisdom of the crowd decide which one was best. While we don't know who exactly voted, we do know this: 8,371 different IP addresses voted on about 269,000 randomly generated matchups."
+
+Here are the top 19 winners:
+
+![](https://pbs.twimg.com/media/FA6KdxlXsAAo7VI.jpg)
+
+### Question 1: (2 pts)
+
+How many rows are there in the `candy` dataset? How many columns? What does one row in `candy` represent? Visit the data dictionary on the following GitHub page and describe each variable as numeric or categorical: <https://github.com/fivethirtyeight/data/tree/master/candy-power-ranking>
+
+```{r}
+# structure of `candy` dataset
+str(candy)
+```
+
+**There are 85 columns and 13 columns. Each one of the rows in the candy dataset represents an individual candy and its associated characteristics. Chocolate, fruity, caramel, peanutyalmondly, nougat, crispedricewafer, hard, bar, pluribus are all categorical variables. Sugarpercent, pricepercent, and winpercent are all numerical variables.**
+
+------------------------------------------------------------------------
+
+### Question 2: (3 pts)
+
+Fit a linear regression model that uses the sugar percentile to predict the win percentage of a candy.
+
+```{r}
+# linear model using `sugarpercentile` to predict `winpercentage` of the candy
+lin_model_sp <- lm(winpercent ~ sugarpercent, data = candy)
+summary(lin_model_sp)
+```
+
+Write the expression of the model:
+
+**winpercent = 11.924 \* sugarpercent + 44.609**
+
+Predict the win percentage for your favorite candy in this dataset. Calculate and interpret its residual:
+
+```{r}
+# Twix is my favorite candy so I will use the model to predict its win percentage
+twix <- data.frame(sugarpercent = 0.546)
+predict_twin_win_percent <- predict(lin_model_sp, newdata = twix)
+actual_twix_win_percent <- as.numeric(candy[candy$competitorname == 'Twix', "winpercent"])
+
+actual_twix_win_percent - predict_twin_win_percent
+
+```
+
+**The calculated residual indicates that the observed win percent for Twix is higher than what the model based on sugar percent predicts it to be**
+
+Make a visualization to represent the linear regression model for the sugar percentile to predict the win percentage. Is there a strong relationship between the two variables?
+
+```{r}
+# Plot of sugar percent and win percent with linear model
+candy |>
+    ggplot(aes(x = sugarpercent, y = winpercent)) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE, color = "steelblue", size = 1) +
+        labs(title = 'Plot of sugar percent and win percent with linear model',
+             x = 'sugar percent',
+             y = 'win percent')
+```
+
+**No there does not seem to be a strong relationshp between the 2 variables**
+
+Report two metrics to evaluate the performance of the model (no interpretation needed for now):
+
+```{r}
+# RSME and Adjusted R-squared of the linear model with sugarpercent as the predictor
+sqrt(mean(resid(lin_model_sp)^2))
+summary(lin_model_sp)$adj.r.squared
+```
+
+------------------------------------------------------------------------
+
+### Question 3: (3 pts)
+
+Choose a categorical predictor and fit a linear regression model to predict the win percentage of a candy only based on this categorical predictor.
+
+```{r}
+# Linear model with chocolate as the predictor variable
+lin_model_chocolate <- lm(winpercent ~ chocolate, data = candy)
+summary(lin_model_chocolate)
+```
+
+Write the expression of the model:
+
+**winpercent = 18.779 \* chocolate + 42.142**
+
+Predict the win percentage for each category. What do these predicted values represent?
+
+```{r}
+# Prediction of candy with and without chocolate
+candy_chocolate <- data.frame(chocolate = 1)
+candy_no_chocolate <- data.frame(chocolate = 0)
+
+predict(lin_model_chocolate, newdata = candy_chocolate)
+predict(lin_model_chocolate, newdata = candy_no_chocolate)
+```
+
+**The predicted values represent the win percentage of a candy with or without chocolate. A candy with chocolate has a 60.9 win percent while a candy without chocolate has a 42.1 win percent.**
+
+Make a visualization to represent the linear regression model for the categorical variable of your choice to predict the win percentage. Is there a strong difference in win percentage between the different categories?
+
+```{r}
+# Plot of chocolate and win percent with linear model 
+candy |>
+    ggplot(aes(x = chocolate, y = winpercent)) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE, color = "steelblue", size = 1) +
+        labs(title = 'Plot of sugar percent and win percent with linear model',
+             x = 'chocolate',
+             y = 'win percent')
+```
+
+**It seems like there is a difference between candies that have chocolate versus candies that don't have chocolate but I don't know if I would call it a strong difference since the win percent distribution between candies that don't have chocolate and candies that do overlaps a lot.**
+
+Report two metrics to evaluate the performance of the model. Has the performance improved compared to the model with the sugar percentile? Justify.
+
+```{r}
+# RSME and Adjusted R-squared of linear model with sugar percent predictor
+sqrt(mean(resid(lin_model_sp)^2))
+summary(lin_model_sp)$adj.r.squared
+
+sqrt(mean(resid(lin_model_chocolate)^2))
+summary(lin_model_chocolate)$adj.r.squared
+```
+
+**Yes, the performance has improved across both RSME and Adjusted R-squared, jumping from 14.23 to 11.28 and 0.04 to 0.39 across RSME and Adjusted R-Squared respectively.**
+
+------------------------------------------------------------------------
+
+### Question 4: (3 pts)
+
+Fit a linear regression model that uses all the predictors that make sense to predict the win percentage of a candy.
+
+```{r}
+# Linear model with all variables excluding competitorname
+lin_model_all_vars <- lm(winpercent ~ chocolate + fruity + caramel + 
+                             peanutyalmondy + nougat + crispedricewafer +
+                             hard + bar + pluribus + sugarpercent + pricepercent, 
+                   data = candy)
+summary(lin_model_all_vars)
+```
+
+Report two metrics to evaluate the performance of the model. Has the performance improved compared to the model with the previous models? Justify.
+
+```{r}
+# RSME and Adjusted R-squared of linear model of all relevant variables
+sqrt(mean(resid(lin_model_all_vars)^2))
+summary(lin_model_all_vars)$adj.r.squared
+```
+
+**Yes the model did improve against both the previous models since the RSME is lower and the Adjusted R-squared is higher against both models.**
+
+Using all potential predictors to predict an outcome can make our model too specific to our data so it does not perform very well when we add new data. Consider the new candy below:
+
+```{r}
+# Add new data
+newcandy <- data.frame(chocolate = 1, fruity = 1, caramel = 1, 
+                       peanutyalmondy = 1, nougat = 1, crispedricewafer = 1,
+                       hard = 1, bar = 1, pluribus = 1, 
+                       sugarpercent = 0.5, pricepercent = 0.5, winpercent = 20)
+```
+
+Predict the value of its win percent based on the model with all predictors that make sense. How could we be so much in error?
+
+```{r}
+# Predicts newcandy win percent
+predict(lin_model_all_vars, newdata = newcandy)
+```
+
+**A potential reason why our predicted value has a very high residual/error is that the predictors in our linear regression model may not have a linear relationship with our outcome variable, leading to high error in the predicted values. There could many other reasons causing our model to produce such an error.**
+
+------------------------------------------------------------------------
+
+## Part 2
+
+Let's analyze the overall sentiment of a Wikipedia page!
+
+### Question 5: (2 pts)
+
+Choose a Wikipedia page you would like to explore. We will retrieve the text content from this Wikipedia page using the `rvest` package. Modify the following code to retrieve the text content from the page that you chose:
+
+```{r}
+# Wikipedia page
+wikipedia_page <- read_html("https://en.wikipedia.org/wiki/Data_science")
+
+# Retrieve text content
+wikipedia_text <- data.frame(text =
+  wikipedia_page |>
+  html_nodes("p") |>
+  html_text())
+```
+
+Why did you choose that page?
+
+**I chose this site because its about data science and I am interested in a future in the data science field!**
+
+------------------------------------------------------------------------
+
+### Question 6: (4 pts)
+
+Using the text of the Wikipedia page, `wikipedia_text`, tokenize the text content into words. Then match these words with a `sentiment` from the `nrc` (National Research Council) lexicon. Finally, find the top 5 sentiments that occurred the most in this Wikipedia page.
+
+```{r}
+# Table of top 5 sentiments on the Wikipedia page
+wikipedia_text |>
+    unnest_tokens(input = text, output = word) -> wiki_words
+
+wiki_words |>
+    inner_join(get_sentiments('nrc'), by = 'word') |>
+    group_by(sentiment) |>
+    summarize(frequency = n()) |>
+    arrange(desc(frequency))
+```
+
+Describe the overall sentiment in the Wikipedia page you chose:
+
+**The overall sentiment of the Wikipedia page I chose seems to be of both positivity, trust, and anticipation and negativity and fear.**
+
+------------------------------------------------------------------------
+
+### Question 7: (2 pts)
+
+What are some limitations of conducting sentiment analysis? Discuss at least two reasons why we should be careful when interpreting the results of sentiment analysis.
+
+**Some limitation of performing sentiment analysis is that language is highly context dependent which sentiment analysis may struggle to understand and sentiment is also highly subjective to each person and model. For these reasons we should be careful when using sentiment analysis to interpret text/language as it will not grasp all the nuance contained in human language.**
+
+------------------------------------------------------------------------
+
+## Formatting: (1 pt)
+
+Knit your file! You can knit into html and once it knits in html, click on `Open in Browser` at the top left of the window that pops out. **Print** your html file into pdf from your browser.
+
+Is it working? If not, try to decipher the error message: look up the error message, consult websites such as [stackoverflow](https://stackoverflow.com/) or [crossvalidated](https://stats.stackexchange.com/).
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope.

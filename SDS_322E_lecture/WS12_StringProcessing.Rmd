@@ -1,0 +1,493 @@
+---
+title: "Worksheet 12: String Processing"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will focus on manipulating strings.
+
+## 1. Set up and introduction to the dataset
+
+Let's load `tidyverse` which contains the `stringr` package:
+
+```{r, message=FALSE}
+# Load packages 
+library(tidyverse)
+```
+
+We will refer to a built-in character vector called `fruit` for practicing string manipulations:
+
+```{r}
+# Example of a built-in character vector
+fruit
+```
+
+## 2. Strings
+
+While we have come across some strings before, let's manipulate strings with functions from `stringr`: they have intuitive names, and they all start with `str_`.  
+
+### a. Create strings
+
+We can create strings with either single quotes `'` or double quotes `"`:
+
+```{r}
+"Here is an example string"
+
+'Here is another example string'
+
+'Yet another one: Why is this "example" different'
+```
+
+To escape the meaning of a special character such as quotes, we can use a backslash `\`:
+
+```{r}
+# Single quote
+'\''
+```
+
+We can store several strings into a vector with `c()`:
+
+```{r}
+c("a", "b", "c")
+```
+
+Note: `fruit` is a vector of strings.
+
+
+### b. Manage lengths
+
+Let's use `str_length()` to find the length of a string:
+
+```{r}
+# String length
+str_length("abc")
+
+str_length("a b c") # a space counts as a character
+```
+
+We can apply this function to many strings contained in a vector!
+
+```{r}
+# String length of the built-in vector
+str_length(fruit)
+```
+
+### c. Combine strings
+
+We can use `str_c()` to combine two or more strings:
+
+```{r}
+# Combine strings
+str_c("Thanksgiving", "Break")
+
+# By default, no space but we can add the argument sep = 
+str_c("Thanksgiving", "Break", sep = " ")
+```
+
+```{r}
+# Add a prefix by using a vector in the second argument
+str_c("prefix-", c("a","b","c"))
+
+# Add a suffix by using a vector in the first argument
+str_c(c("a","b","c"), "-suffix")
+
+# adding a prefix (first argument) and a suffix (third argument) to the string (second arguement)
+str_c("prefix-", c("a","b","c"), "-suffix")
+```
+
+What if we want to combine all the values of one vector together?
+
+```{r}
+# Use the argument collapse =
+str_c(c("a","b","c"), collapse = "")
+
+# Or separate by a comma and a space
+str_c(c("a","b","c"), collapse = ", ")
+```
+
+#### **Try it! Find the number of letters used in `fruit`, in total.**
+
+```{r}
+# Write and submit code here!
+str_length(str_c(fruit, collapse='')) # method 1
+
+sum(str_length(fruit)) # method 2
+
+```
+
+**There were a total of 647 characters used to create the fruit string vector**
+
+
+### d. Mutate strings
+
+We can change the strings from lower to uppercase and vice-versa (also use sentence case):
+
+```{r}
+# To lower case
+str_to_lower("Thanksgiving Break")
+
+# To upper case
+str_to_upper("Thanksgiving Break")
+
+# To sentence case
+str_to_sentence("Thanksgiving Break")
+```
+
+### e. Subset strings
+
+We can focus on a subset of a string with `str_sub()` (only works with indexing positions though):
+
+```{r}
+# Select a position in the string
+fruit |> str_sub(start = 1, end = 3)
+
+# Or count backwards with -
+fruit |> str_sub(start = -3, end = -1)
+```
+
+## 3. Patterns
+
+Let's start recognizing patterns in strings!
+
+### a. Find matches for some patterns
+
+We can find patterns in our data with `str_view()`:
+
+```{r}
+# View all possible matches to a pattern within one word 
+fruit |> str_view("an")
+```
+
+### b. Detect matches for some patterns
+
+What does `str_detect()` do differently?
+
+```{r}
+# Detect the matches
+fruit |> str_detect("an")
+```
+
+#### **Try it! Count how many fruits contain the pattern `berry`.**
+
+```{r}
+# Write and submit code here!
+sum(str_detect(fruit, 'berry'))
+
+fruit |> str_detect('berry') |> sum()
+
+```
+
+**14 instances of strings with 'berry' in the `fruit` vector**
+
+
+### c. Subset matches for some patterns
+
+And what about `str_subset()`?
+
+```{r}
+# Subset the matches
+fruit |> str_subset("an")
+```
+
+#### **Try it! Create a vector called `berries` that contains all fruits with the pattern `berry`.**
+
+```{r}
+# Write and submit code here!
+berries <- str_subset(fruit,'berry')
+berries
+```
+
+**This creates a vector with only berries**
+
+
+### d. Split strings
+
+This can be a little tricky. Let's try to split each fruit that has two words into two separate words with `str_split()`:
+
+```{r}
+# Split when there is a space
+fruit |> str_split(" ")
+```
+
+Technically, R created what we call "lists". We can `unlist()` to go back to the format of a vector:
+
+```{r}
+# unlist() flattens the vector into a 1D array whereas when we use split() it creates a 2D array
+
+# Split when there is a space
+fruit |> str_split(" ") |> unlist()
+```
+
+### e. Replace or remove patterns
+
+Let's try `str_replace()` and `str_replace_all()`:
+
+```{r}
+# Look for all patterns...
+str_view("banana", "an")
+
+# ... and replace one of these patterns
+str_replace("banana", "an", "oon")
+
+# ... or replace all of these patterns
+str_replace_all("banana", "an", "oon")
+```
+
+What about `str_remove()` and `str_remove_all()`?
+
+```{r}
+# Remove one of these patterns
+str_remove("banana", "an")
+
+# Or remove all of these patterns
+str_remove_all("banana", "an")
+```
+
+## 4. Regular expressions (Regex)
+
+Regular expressions are used to describe patterns in strings. They're a little weird at first but they can be very useful!
+
+### a. Wildcards
+
+Use `.` to match any character (except a new line):
+
+```{r}
+# View all matches with any letter, a, and any letter
+str_view(fruit,".a.")
+```
+
+### b. Anchors
+
+Let's find a match at the beginning of a string with `^` or at the end of a string with `$` :
+
+```{r}
+# Match at the beginning with "a"
+fruit |> str_view("^a")
+```
+
+```{r}
+# Match at the end with "a"
+fruit |> str_view("a$")
+```
+
+#### **Try it! What is the proportion of fruit names that start with the first letter of your name?**
+
+```{r}
+# Write and submit code here!
+length(str_view(fruit, '^a')) / length(fruit) * 100
+```
+
+**3.75% of fruit names start with the first letter of my name (Austine)**
+
+
+### c. Literal characters
+
+What if our string include special characters? We need to use an "escape" with backslash. For example, `\\` means literal `\` in strings.
+
+```{r}
+# Test weird strings
+weirds <- c("a.A", "a\\c", "a/c", "a c") 
+
+# Match literal period
+str_view(weirds, "\\.")
+```
+
+```{r}
+# How is that different from this command?
+str_view(weirds, ".\\..") 
+
+# this commands has '.' before and after '\\.' so it matches the character before and after the literal '.' as well
+```
+
+```{r}
+# Match literal backslash
+str_view(weirds, "\\\\")
+```
+
+### d. Special patterns
+
+Here are a few useful patterns:
+
+-   `[0-9]` matches any digit
+
+-   `[ ]` matches any single space
+
+-   `[^ ]` matches anything except a space
+
+-   `[abc]` matches a, b, or c
+
+-   `[^abc]` matches anything except a, b, or c
+
+-   `[a-zA-Z]` matches any letter, lower case or upper case
+
+-   `[a-zA-Z0-9]` matches any alphanumeric character
+
+```{r}
+# What do these next few lines do? 
+str_view(weirds,"[ ]")
+
+# this finds if the string has a space character in it
+```
+
+```{r}
+str_view(weirds,"[abc]")
+
+# this finds if the string has any of the characters within the []
+```
+
+```{r}
+str_view(weirds, "[^a-zA-Z]")
+
+# this finds the first match of a non-alphabetical character in the string
+```
+
+#### **Try it! Show all vowels in `fruit`.**
+
+```{r}
+# Write and submit code here!
+str_view(fruit, "[aeiou]")
+```
+
+
+### e. Repetitions
+
+To control how many times a pattern can appear, we can use the following structure:
+
+-   `?` is for 0 or 1 match
+-   `+` is for 1 or more matches
+-   `*` is for 0 or more matches
+-   `{n}` is for exactly n matches
+-   `{n,}` is for n or more matches
+-   `{,m}` is for at most m matches
+-   `{n,m}` is for between n and m matches
+
+```{r}
+# Test repeats
+repeats <- c("","z","zz","zzz")
+
+# What do these lines do? 
+str_view(repeats, "z?")
+
+# this indicates whether there are zero or one occurrences of 'z' in the string
+```
+
+```{r}
+# Compared to
+str_view(repeats, "z+")
+
+# this indicates whether there are one or more of 'z' in that string
+```
+
+```{r}
+# Compared to
+str_view(repeats, "z*")
+
+# this indicates whether there are zero or more matches of 'z' in the string
+```
+
+```{r}
+# Compared to
+str_view(repeats, "z{2}")
+
+# this indicates if there are exactly 2 matches of that character in the string and disregards if there are more
+```
+
+
+------------------------------------------------------------------------
+
+## **Your turn!**
+
+Let's practice some string manipulation with another built-in character vector:
+
+```{r}
+# Consider this other built-in character vector
+head(sentences)
+```
+
+Notice some of the words in `sentences` are fruits. Let's find which sentences mention fruits!
+
+1.  We will consider all fruit names from `fruit` and look for matches in the `sentences`. Combine all the elements from `fruit` into a single string called `testfruit` that contains all the possible names separated by `|`. What does `|` mean in R anyway?
+
+```{r}
+# Write and submit code here!
+testfruit <- str_c(fruit, collapse = '|')
+```
+
+**The '|' means logical OR in R**
+
+
+2.  Use `str_subset()` to find a subset of `sentences` containing a fruit name. Does there appear to be any issue? Look at the third sentence for example: is there any fruit in that sentence? How could we fix that?
+
+```{r}
+# Write and submit code here!
+str_subset(sentences, testfruit)
+```
+
+**The issues appears to be that it is finding the substring of certain words that are fruit. An example is pearl which contains the substring 'pear' and fight which contains the substring 'fig', both of which are in the `fruit` vector**
+
+
+3.  Let's try a different approach: split the sentences as words then look for exact matches. First, get rid of punctuation in the sentences with `str_remove_all()`. *Hint: punctuation is anything that is not a letter, a number, or a space.* Then convert all characters as lower case and split `sentences` into individual words with `str_split(" ") |> unlist`. Save the resulting vector as `sentences_words`. What would happen if you don't do `unlist`?
+
+```{r}
+# Write and submit code here!
+sentences_words <- sentences |>
+                        str_to_lower() |>
+                        str_remove_all('[^a-zA-Z0-9[ ]]') |>
+                        str_split(' ') |>
+                        unlist()
+```
+
+**If we did not use the unlist() function, then it would have became a 2D where each index of the `sentences` contains a vector of words of the sentence originally at that index**
+
+
+4.  Use the function `which(fruit %in% sentence_words)` to find which fruits appear in `sentence_words`. Is that correct? How could we fix that?
+
+```{r}
+# Write and submit code here!
+which(fruit %in% sentences_words)
+fruit[1]
+fruit[31]
+fruit[34]
+fruit[54]
+fruit[58]
+fruit[63]
+
+# second method
+fruit_words <- fruit |>
+                    str_split(' ')|>
+                    unlist()
+fruit_words
+which(fruit_words %in% sentences_words)
+fruit_words[1]
+fruit_words[5]
+fruit_words[6]
+fruit_words[11]
+fruit_words[21]
+fruit_words[35]
+fruit_words[39]
+fruit_words[48]
+fruit_words[60]
+fruit_words[64]
+fruit_words[69]
+fruit_words[72]
+fruit_words[85]
+fruit_words[90]
+```
+
+**This will not work for fruit with 2 words since it will be comparing it to single words of `sentences_words` since they are all split up by the spaces so we would need to split the fruits (I have included a second method to make this better)**

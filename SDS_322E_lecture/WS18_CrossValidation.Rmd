@@ -1,0 +1,331 @@
+---
+title: "Worksheet 18: Cross-validation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will discuss the technique of cross-validation to check the performance of our model on "new data".
+
+## 1. Set up and introduction to dataset
+
+We will use the packages `tidyverse` and `plotROC`.
+
+```{r, message = FALSE}
+# Load packages
+library(tidyverse)
+library(plotROC) 
+```
+
+We will explore a new dataset, `titanic_dataset`, which contains information about passengers of the Titanic, that sank on 15 April 1912 after colliding with an iceberg.
+
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/RMS_Titanic_3.jpg/1280px-RMS_Titanic_3.jpg){width="240"}
+
+```{r}
+# Upload the data from GitHub
+titanic_dataset <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//titanic_dataset.csv")
+
+# Take a quick look
+head(titanic_dataset)
+```
+
+Here are some details about how some of the variables were coded:
+
+-   if a passenger `Survived` the sinking (Yes = `1`, No = `0`)
+
+-   the passenger class, `Pclass` (First Class = `1`, Second Class = `2`, Third Class = `3`)
+
+-   the number of siblings or spouses, `SibSp`, that a passenger had on board and the number of parents or children, `Parch`, the passenger had on board
+
+-   the port of embarkation for the passenger, `Embarked` (Cherbourg = `C`, Queenstown = `Q`, Southampton = `S`).
+
+If we wanted to predict the value of the fare that a passenger paid for the trip based on some predictors, which variable would be the outcome? Which model would be more appropriate: linear regression or logistic regression?
+
+**The variables we would use for our model to predict the fare for that passenger is 'Pclass', 'SibSp', 'Parch', and 'Embarked' and the outcome variable would be 'Fare'. The model we would use is a linear regression model**
+
+If we wanted to classify if a passenger survived or not, which variable would be the outcome? Which model would be more appropriate: linear regression or logistic regression?
+
+**The variables we would use for our model to classify if a passenger survived or not are 'Pclass', 'SibSp', 'Parch', and 'Sex' and the outcome variable would be 'Survived'. The model we would use is a logistic regression model**
+
+Which variables in the `titanic_dataset` would not be appropriate to include in the models described above?
+
+**Some variables that would not be appropriate to include in the models are 'PasssengerId', 'Name', and 'Ticket'.**
+
+## 2. Fit a model on an entire dataset
+
+First, let's consider a model to predict the fare paid by a passenger based on the passenger's class.
+
+#### **Try it! Fit the appropriate model and call it `model_fare`. Report the corresponding performance.**
+
+```{r}
+# Write and submit code here!
+lin_model_class <- lm(Fare ~ Pclass, data = titanic_dataset)
+summary(lin_model_class)
+summary(lin_model_class)$adj.r.squared
+sqrt(mean(resid(lin_model_class)^2))
+```
+
+For this model, we will check the ability of the model to make predictions for "new" data with cross-validation. Indeed, the principle of cross-validation is to train a model on some part of the data and test the model's performance on "new" data. Since we can't reproduce the sinking of the Titanic, we will use the data available and split it as a train set and a test set.
+
+## 3. Train and Test a model
+
+Let's separate our entire dataset into a `train` dataset and a `test` dataset (representing 70% and 30% of the entire dataset, respectively):
+
+```{r}
+# Define a sampling process
+sample_process <- sample(c(TRUE, FALSE), # take value TRUE or FALSE
+                 nrow(titanic_dataset), # for each row in the data
+                 replace = TRUE, # TRUE or FALSE can repeat
+                 prob = c(0.7, 0.3)) # set 70% TRUE, 30% FALSE
+
+# Select values for the train set (corresponding to TRUEs in sample_process)
+train_data <- titanic_dataset[sample_process, ]
+
+# Select values for the test set (corresponding to FALSEs in sample_process)
+test_data <- titanic_dataset[!sample_process, ]
+```
+
+#### **Try it! Check the size of each part of the data. Do the numbers of rows in each data match the number of rows in the entire dataset?**
+
+```{r}
+# Write and submit code here!
+nrow(train_data) + nrow(test_data)
+nrow(titanic_dataset)
+```
+
+**Yes each of the data sets match the total number of rows in the entire dataset**
+
+### a. Train a model on the train set
+
+Let's consider the linear regression model to predict the fare paid by a passenger based on the passenger's class.
+
+```{r}
+# Fit a linear regression model on train data
+train_model <- lm(Fare ~ Pclass, data = train_data)
+```
+
+Since the train model is fitted on the train data, `train_model` is the best model to fit the train data. But how does this model works on "new" data? We will compare the performance of `train_model` on the train data with the performance on the test data.
+
+### b. Test the model on the test set
+
+Let's compare the performance of the model on the train data vs the performance on the test data for predicting the fare:
+
+```{r}
+# Calculate RMSE for the train data
+sqrt(mean((
+  # residual = observed - predicted
+  train_data$Fare - predict(train_model, newdata = train_data))^2, 
+          na.rm = TRUE))
+```
+
+Did we all get the exact same RMSE value? Why/Why not? **The train data and test data were split randomly: we don't actually have the same train data so that means we also don't have the same model!**
+
+```{r}
+# Calculate RMSE for the test data
+sqrt(mean((
+  # residual = observed - predicted
+  test_data$Fare - predict(train_model, newdata = test_data))^2, 
+          na.rm = TRUE))
+```
+
+**The RSME is lower for the test dataset meaning the performance of the model is better for the new data.**
+
+Different answers are possible depending on RMSE values (recall that the lower the RMSE value, the better the performance is):
+
+-   if the RMSE value is lower for the test dataset: the performance of the model is better for new data!
+
+-   if the RMSE value is about the same on both datasets: the performance of the model is about the same.
+
+-   if the RMSE value is higher for the test dataset: the performance of the model is worse for new data.
+
+## 4. Cross-validation for prediction models
+
+Our results for comparing the performance might differ depending on which `train` data and `test` data we considered. Let's try two different methods to compare the performance of a model over multiple test datasets: the k-fold cross-validation and the leave-one-out cross-validation.
+
+### a. k-fold cross-validation
+
+The principle for *k*-fold cross-validation is to:
+
+-   Divide datasets into *k* equal parts (usually 5 or 10)
+
+-   Use *k*−1 parts as the `train` data, and the remaining part as the `test` data
+
+-   Repeat *k* times, so each part has been used once as a test data
+
+-   Average performance over *k* performances
+
+First, we will create the different *folds*:
+
+```{r}
+# Choose number of folds
+k = 10 
+
+# Randomly order rows in the dataset
+data <- titanic_dataset[sample(nrow(titanic_dataset)), ] 
+
+# Create k folds from the dataset
+folds <- cut(seq(1:nrow(data)), breaks = k, labels = FALSE)
+```
+
+Then we fit our model and repeat the process for each *k*-fold (using a for-loop):
+
+```{r}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i)
+  train_model <- lm(Fare ~ Pclass, data = train_not_i)
+  
+  # Performance listed for each test data = fold i
+  perf_k[i] <- sqrt(mean((
+    test_i$Fare - predict(train_model, newdata = test_i))^2, 
+    na.rm = TRUE))
+}
+```
+
+Finally, take a look at the performance on each fold and find the average performance:
+
+```{r}
+# Performance for each fold 
+perf_k
+
+# Average performance over all k folds and variation
+mean(perf_k)
+sd(perf_k)
+```
+
+What does the comparison of performances across *k* folds tell us?
+
+-   if the performance is consistently good, the model is likely to generalize well to "new" data.
+
+-   if the performance is consistently bad, the model might be underfitting.
+
+-   if the performance varies a lot across the cross-validation folds, the model might be overfitting.
+
+#### **Try it! Using the same folds as above, what would we need to change in the code below to check the ability of a linear regression model to predict the fare paid by a passenger based on all predictors that make sense?**
+
+```{r}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i) [MODIFIED THE LINEAR MODEL TO INCLUDE MORE PREDICTOR VARIABLES]
+  train_model <- lm(Fare ~ Pclass + Sex + Age + SibSp + Parch + Embarked, data = train_not_i)
+  
+  # Performance listed for each test data = fold i
+  
+  perf_k[i] <- sqrt(mean((
+    test_i$Fare - predict(train_model, newdata = test_i))^2,
+    na.rm = TRUE))
+
+  # perf_k[i] <- summary(train_model)$adj.r.squared
+}
+
+# Performance for each fold 
+perf_k
+
+# Average performance over all k folds and variation
+mean(perf_k)
+sd(perf_k)
+```
+
+**This model is overfitting since the RSME variance is extremely high indicating that the model's performance is varying a lot.**
+
+### b. Leave-One-Out cross-validation
+
+The principle for Leave-One-Out cross-validation (LOOCV) is to:
+
+-   Use *n*−1 observations as the `train` data, and the remaining part as the `test` data (that's actually just one observation)
+
+-   Repeat *n* times, so each observation has been left out once
+
+-   Average performance over *n* tests
+
+## 5. Cross-validation for classification models
+
+Second, let's consider a model to classify if a passenger survived or not based on the passenger's class. We should fit a logistic regression model:
+
+```{r, warning=FALSE}
+# Fit a logistic regression model
+train_model <- glm(Survived ~ Pclass,
+                   data = titanic_dataset,
+                   family = "binomial")
+
+# Calculate performance with AUC
+calc_auc(
+  # Make a ROC curve
+  ggplot(titanic_dataset) + 
+    geom_roc(aes(
+      # Outcome is Survived
+      d = Survived,
+      # Probability of surviving based on the logistic model
+      m = predict(train_model, type = "response")))
+  )$AUC
+```
+
+We can also use the k-fold cross-validation for comparing the performance of classification models.
+
+#### **Try it! Using the same folds as above, what would we need to change in the code below to check the ability of a logistic regression model to predict the probability of survival for a passenger based on their class? based on all predictors that make sense?**
+
+```{r}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i)
+  train_model <- glm(Survived ~ Pclass + Age + Sex + Fare + SibSp + Parch, data = train_not_i, family = "binomial")
+  
+  # Performance listed for each test data = fold i
+  
+  # perf_k[i] <- sqrt(mean((
+  #   test_i$Survived - predict(train_model, newdata = test_i))^2, 
+  #   na.rm = TRUE))
+  
+  perf_k[i] <- calc_auc(
+                    ggplot(test_i) +
+                        geom_roc(aes(
+                            d = Survived,
+                            m = predict(train_model, type = "response", newdata = test_i)))
+                    )$AUC
+}
+
+# Performance for each fold 
+perf_k
+
+# Average performance over all k folds and variation
+mean(perf_k)
+sd(perf_k)
+```
+
+**To check the ability of the logistic regression model to predict the probability of survival for a passenger we need to assess the AUC/ROC of the logistic regression model.**

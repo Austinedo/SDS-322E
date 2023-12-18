@@ -1,0 +1,105 @@
+---
+title: "Lab 1"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+### Introduction: (4 pts)
+
+Enter the names of the group members here: Graceanne Becker, Catherine Zhong, Austine Do
+
+Briefly introduce yourself, discuss and answer the following questions:
+
+-   Icebreaker: Which fictional team is the best team of all time? 
+**The avengers are the best fictional team of all time**
+
+-   What will each group member do before coming to lab each week? 
+**Each member will complete the pre-lab before coming to lab each week.**
+
+-   What are our expectations for participation during lab? 
+**Our expectations for participation during lab include being present and contributing equally.**
+
+-   How will we address someone not meeting the above expectations? 
+**We will notify the TA of the issue if someone does not meet the expectations expressed above.**
+
+------------------------------------------------------------------------
+
+### Data exploration:
+
+In this lab, you will explore the dataset `faithful`. It contains information about eruptions of the Old Faithful geyser in Yellowstone National Park. The first few observations are listed below.
+
+```{r}
+head(faithful)
+```
+
+### Question 1: (4 pts)
+
+Use your favorite web browser and look for an image of the Old Faithful. Include that image below. Has anyone in your group been to Yellowstone and seen this geyser erupt?
+
+![]https://cdn.arstechnica.net/wp-content/uploads/2022/03/GettyImages-523204923-800x562.jpg
+
+**No one in our group has ever been to Yellowstone and seen the geyser erupt.**
+
+------------------------------------------------------------------------
+
+### Question 2: (4 pts)
+
+How many rows are there in this dataset? How many columns? In which units are the variables reported? You will need more information about the dataset to answer that last question: run `?faithful` **in the console**. *Note: using `?` in your Markdown document might prevent you from knitting or will open the documentation in a new tab.*
+
+```{r}
+# your code goes below (replace this comment with something meaningul)
+?faithful
+dim(faithful)
+```
+
+**There are 272 rows/observations and 2 columns/variables in this dataset. Both the variables are reported in minutes.**
+
+------------------------------------------------------------------------
+
+### Question 3: (5 pts)
+
+Create a scatterplot using the `plot()` function to explore how the waiting time might affect the eruption duration. Make sure to label axes (`xlab=`, `ylab=`) and give a title to the graph (`main=`). Describe the relationship between waiting time and eruption duration based on what you notice in this graph.
+
+```{r}
+# your code goes below (replace this comment with something meaningul)
+plot(faithful$eruptions, faithful$waiting,
+     main='Eruption duration vs. Waiting interval',
+     xlab='Eruption duration (min)',
+     ylab='Waiting interval (min)')
+```
+
+**It appears that the eruption duration and the waiting interval are moderately, positively, and linearly related.**
+
+------------------------------------------------------------------------
+
+### Question 4: (3 pts)
+
+How does the scatterplot that you made in the previous question compare to the one you selected in the intro lab? Does it look similar or different? If the plot looks different from what you selected, how would you explain the difference?
+
+**Compared to the graph I selected during the pre-lab, both the graphs look similar in that both had a positive correlation.**
+
+------------------------------------------------------------------------
+
+### Formatting: (5 pts)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope.

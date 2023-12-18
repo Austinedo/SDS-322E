@@ -1,0 +1,291 @@
+---
+title: "Worksheet 1: Using RMarkdown"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# This grey area is called a code chunk
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, # show all code chunks in document
+                      eval = TRUE, # run all code chunks
+                      warning = TRUE, # show warning messages
+                      fig.align = "center", # figures are centered
+                      R.options = list(max.print=100)) # print 100 elements max
+```
+
+Much of the work in this class will be done via **R Markdown documents.** R Markdown documents combine text (with some formatting options), R code, and R outputs including figures. They are a great way to produce self-contained, reproducible, well-documented data analyses.
+
+In this first *.Rmd* worksheet, you will learn how to do some basic markdown editing, continue to explore **base R**, include some **R packages**, and how to import **datasets**. After you have made changes to the document, press "Knit" on the top of this pane and see what you get: hopefully an *html* file! It will complain in the console if some part of the code is not working. Remember: **troubleshooting is part of programming life**!
+
+Edit below this line.
+
+------------------------------------------------------------------------
+
+## 1. Basic Markdown editing
+
+Let's try out basic R Markdown features, as described [here](http://rmarkdown.rstudio.com/authoring_basics.html): try different headers, make a numbered list and a bulleted list, write some text that is bold and some that is in italics, try the block-quote feature.
+
+# For
+
+## Example
+
+### These
+
+#### Are
+
+##### Different
+
+###### Headers
+
+######Make sure to leave a space after \#'s
+
+1.  Here
+2.  Are
+3.  Four
+4.  Things
+
+-   bullet 1
+
+    -   sub-bullet 1
+
+-   bullet 2
+
+    -   sub-bullet 2
+
+-   bullet 3
+
+    -   sub-bullet 3
+
+You can use some basic formatting:
+
+Modify font:\
+**bold** or **bold**\
+*italic* or *italic*\
+***bold and italic***, also ***bold and italic***\
+~~strikethrough~~
+
+> Create a blockquote
+
+## 2. Embedded R code
+
+R code embedded in chunks will be executed and the output will be shown in the *html* file (unless specified otherwise with `echo=FALSE`).
+
+R comes with several built-in datasets, which are generally used as demo data for playing with R functions. The dataset used in the following code chunk is `cars`, which lists speed (mph) and corresponding stopping distance (ft) for cars from the 1920s. You can run all the code in a chunk at once by using the play button on the top right of the chunk or you can submit code line by line like we did in a regular R script.
+
+Make sure to skip a line before and after the code chunk to avoid any formatting issue.
+
+```{r}
+# Display the first 6 rows of the dataset
+head(cars)
+
+# Grab just the third row
+cars[3,]
+
+# Grab just the second column...
+cars[,2]
+
+# ... which is the same as grabbing the column by name
+cars$dist
+```
+
+#### **Try it! Let's describe the variables in the `cars` dataset by finding the mean of each variable and also the standard deviation using the function `sd()`. Write a sentence to interpret these values (including units).**
+
+```{r}
+mean(cars$speed)
+sd(cars$speed)
+
+mean(cars$dist)
+sd(cars$dist)
+
+```
+
+**Write sentences here!**
+
+The **mean speed** of the cars: 15.4 mph
+
+The **st. dev of the speed** of the cars: 5.287644 mph
+
+The **mean distance** of the cars: 42.98 ft
+
+The **st. dev of the distance** of the cars: 25.76938 ft
+
+A pretty convenient function that can find basic descriptive statistics for all variables in the dataset is `summary()`:
+
+```{r}
+# Take a look at descriptive statistics for all variables
+summary(cars)
+```
+
+## 3. Plots and other outputs
+
+You can easily embed plots in your document! If you only want to display the plot in the knitted document, and not the code, you can hide the code with the option `echo=FALSE` in the code chunk settings (see below in `{r, }`). For example, you see these different plots in the *html* file with no code:
+
+```{r, echo=FALSE}
+# Create a basic histogram
+hist(cars$speed,
+     # Give a title
+     main = "Distribution of car speed",
+     # Label the axis of your graph
+     xlab = "Speed (mph)")
+```
+
+Most speeds in this data range from 10 to 20 mph.
+
+#### **Try it! Try some more plots for representing numeric variables by completing the code below. Add titles and labels. Briefly describe what you see.**
+
+```{r}
+# Create a basic boxplot
+boxplot(cars$dist,
+        main = 'boxplot of the distances of the cars',
+        horizontal = TRUE,
+        xlab = 'distance (ft)')
+
+# Create a basic scatterplot (variable on x-axis first, then variable on y-axis)
+plot(cars$speed, cars$dist,
+     xlab = 'speed (mph)',
+     ylab = 'distance (ft)',
+     main = 'speed vs. distance')
+```
+
+**Write sentences here!**
+
+As you can see from the boxplot of the distances of the car, the distances of the cars are skewed positively (or skewed to the right) and from the scatterplot we can see that as speed increases, distance also increases.
+
+We will learn fancier visualizations in the next part of this unit but basic plots are useful for simple and quick visualizations.
+
+## 4. Typesetting equations and functions
+
+You can include `LaTeX` code both inline (between single dollar-signs) and in blocks (between double dollar-signs). For example, below is the formula for calculating the z-score: the relative position of an observation compared to the mean (in terms of standard deviations).
+
+$$
+z = \frac{X_i - mean(X)}{sd(X)}
+$$
+
+#### **Try it! What is the z-score for a car with a stopping distance of 120 feet?**
+
+```{r}
+# Write and submit code here!
+z <- (120 - mean(cars$dist)) / sd(cars$dist)
+print(z)
+```
+
+**Write sentences here!**
+
+The Z-score of a car that has a stopping distance of 120 feet is: **2.99**
+
+## 5. HTML hyperlinks, images, tables, etc.
+
+We can include external links and images:
+
+[Here is a hyperlink to Canvas](https://canvas.utexas.edu)
+
+Here is an image from a URL (for local images, just specify the file path in place of the URL)
+
+![](https://news.utexas.edu/wp-content/uploads/2021/10/bevo-9841-2100x1398-e2000d2b-a7a1-448c-83d5-281310430e66-1024x682.jpg)
+
+You can create some basic table to summarize each of the variables using the means calculated in a previous code chunk:
+
+|      | speed    | distance |
+|------|----------|----------|
+| mean | 15.4 mph | 42.98 ft |
+| sd   | 5.3 mph  | 25.8 ft  |
+
+Including links, images, and tables is fairly easy to do with the *Visual* view: it works more like a text editor.
+
+## 6. Packages
+
+R packages are collections of functions and datasets developed by the R community worldwide. You can install a package by typing the function `install.packages(“package_name”)` **in the console** panel OR specifying the option `eval=FALSE` in the code chunk settings (see below in `{r, }`). *Note: using `install.packages()` in your Markdown document will prevent you from knitting so don't include it in your document since you only need to install a package once!*
+
+Once installed, you need to load packages using `library(package_name)`.
+
+For example, let's install and load the package `tidyverse` (it should already be installed but it does not hurt to update it):
+
+```{r, eval=FALSE}
+# Run the code chunk or copy/paste the following in your console to install the package
+install.packages("tidyverse")
+```
+
+Once a package is installed, you should load the package to call specific functions from this package:
+
+```{r}
+# Load the package within the Markdown file
+library(tidyverse)
+```
+
+We will learn great functions from the `tidyverse` package throughout the semester.
+
+## 7. Importing datasets
+
+While we will use many built-in datasets for learning R, we should also be able to import other datasets of interest into RStudio. For example, you will do so for your projects.
+
+Let's import a *.csv* file for practice. We will import the `pokemon` dataset: download it from Canvas and upload it to your working directory, i.e. where your R Markdown "lives". In your working directory, click on the dataset name and select *Import dataset*. Make sure the *First Rows as Names* option is checked and uncheck the *Open Data Viewer*. Notice that there is some R code created on the bottom right of this window? That's the code you will need to import data in your RMarkdown. Copy/paste that code below:
+
+```{r}
+# Import the pokemon dataset
+library(readr)
+pokemon <- read.csv('pokemon.csv')
+View(pokemon)
+```
+
+There are other ways to import a dataset but that's the most convenient since it also provides the code to create the object of the dataset in the environment. **Important: your RMarkdown file is independent from the environment you see on the right, meaning that all objects used in your document must be created or uploaded within the document.** If you are using objects not built in R and not created within the R Markdown document, you'll an error like: `object 'pokemon' not found`.
+
+It is always a good idea to give a different name to the dataset that are saved into your environment... Because what if you make some unfortunate changes to the original dataset?? See this post for a solution: <https://community.rstudio.com/t/need-help-resetting-r-dataset-to-its-original-form/81416>
+
+#### **Try it! Rename the `pokemon` dataset with your EID. Can you find basic descriptive statistics for each variable in the dataset? Anything surprising?**
+
+```{r}
+# Write and submit code here!
+ahd589 <- pokemon
+
+summary(ahd589)
+```
+
+**Write sentences here!**
+
+It is always important to take a quick look at the data before doing anything with it:
+
+```{r, eval=FALSE}
+# All these functions give different types of information about the data
+str(pokemon)
+head(pokemon)
+dim(pokemon)
+nrow(pokemon)
+ncol(pokemon)
+```
+
+You can view the entire dataset by clicking on the `pokemon` object in the environment or by running `View(pokemon)` **in the console**. *Note: using `View()` in your Markdown document will prevent you from knitting.*
+
+## 8. Source or Visual view
+
+Some Markdown features are easier to manipulate in the Visual editor. You can switch between the two views by clicking on your preferred option above (top left of this pane).
+
+## **Your turn!**
+
+Explore the `pokemon` dataset with another classmate.
+
+1.  Each of you pick a different numeric variable and create an appropriate plot to represent the distribution. Calculate summary statistics and interpret them in a sentence.
+
+```{r}
+# Write code here
+
+```
+
+**Write sentences here!**
+
+2.  Investigate the relationship between the two numeric variables you picked with a graph. Do you notice any trend?
+
+```{r}
+# Write code here
+
+```
+
+**Write sentences here!**
+
+3.  One of you posts the plot on the following slideshow with your code in the speakers note on bottom: <https://docs.google.com/presentation/d/1W9aCECNCQTd0GabOF03W14xt0qSolX5V1lrPA5GGkAI/edit?usp=sharing>
+
+*Note: Worksheet keys are posted after lecture on Canvas under Programming Tools.*

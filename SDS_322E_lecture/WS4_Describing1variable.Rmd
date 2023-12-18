@@ -1,0 +1,378 @@
+---
+title: "Worksheet 4: Describing 1 variable"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will use `ggplot` and some `geom_...()` functions to explore univariate distributions: describing 1 variable at a time.
+
+## 1. Set up and introduction to dataset
+
+Remember to call the package `ggplot2` which is in `tidyverse` and contains the functions we will use for visualization:
+
+```{r, echo=FALSE}
+# Load a package
+library(tidyverse)
+```
+
+The dataset we will use for this worksheet is `msleep` which is part of the `ggplot2` package. It contains information about mammals, their sleeping habits, and other characteristics. Let's take a look at the structure:
+
+```{r}
+# Structure of the dataset: observations, variables, ...
+str(msleep)
+```
+
+![](https://wildlife.org/wp-content/uploads/2020/11/Sleeping-animals-2-1024x683.jpg)
+
+You can get more information about the variables in this dataset by running `?msleep` in the console. Here is a summary:
+
+| Variable     | Description                               |
+|--------------|-------------------------------------------|
+| name         | Common name                               |
+| genus        | Taxonomic rank                            |
+| vore         | Diet: carni-, herbi-, insecti-, omni-vore |
+| order        | Another taxonomic rank                    |
+| conservation | Conservation status of the mammal         |
+| sleep_total  | Total amount of daily sleep, in hours     |
+| sleep_rem    | Amount of REM sleep, in hours             |
+| sleep_cycle  | Length of sleep cycle, in hours           |
+| awake        | Amount of time spent awake, in hours      |
+| brainwt      | Brain weight, in kilograms                |
+| bodywt       | Body weight, in kilograms                 |
+
+Also take a quick look at summary statistics:
+
+```{r}
+# Create a general summary for each variable
+summary(msleep)
+```
+
+*Note: there are some missing values for some of the variables.*
+
+Let's use some univariate graphs and summary statistics to explore this dataset.
+
+## 2. Describing categorical variables
+
+When describing categorical variables, we may wonder what are the most and least common categories.
+
+### a. Using a bar graph
+
+We can represent a single categorical variable with a bar graph using `geom_bar()` where the height of the bar of each category represents how frequently a category appears in the dataset. Let's investigate what diet is most common for the mammals included in `msleep`:
+
+```{r}
+# Define the graph with ggplot and basic aesthetics
+ggplot(data = msleep) +
+  geom_bar(aes(x = vore)) # use geom_bar()
+```
+
+We can modify some basic aspects of the first graph to make it more readable:
+
+```{r}
+# Add some color and labels
+ggplot(data = msleep) +
+  geom_bar(aes(x = vore),
+           # What does fill do compared to color?
+           # COLOR IS THE OUTLINE OF THE BAR AND THE FILL IS THE COLOR OF THE BAR
+           fill = "blue", color = "black") + 
+  # Add labels
+  labs(title = "Diet of mammals", 
+       x = "Diet", 
+       y = "Frequency")
+```
+
+### b. Reporting frequencies and relative frequencies
+
+When reporting statistics about a categorical variable, we often include frequencies / counts and relative frequencies / percentages. We can use the function `table()` to find those:
+
+```{r}
+# Find frequencies
+table(msleep$vore)
+```
+
+There are 19 mammals that are carnivore, 32 are herbivore, 5 insectivore, and 20 omnivore.
+
+```{r}
+# Find proportions (based on the frequency table)
+prop.table(table(msleep$vore))
+```
+
+Mammals that are herbivore represents 42.1% of all the mammals.
+
+### c. Handling missing values
+
+As showed in the first few plots, there is a category called `NA`, meaning that there is actually no information about the diet of the mammal.
+
+#### **Try it! Ignore the missing values for the diet, visualize the distribution of the different diets, using labels, and color the bars per diet. Also, we can't read the highest frequency: use `scale_y_continuous()` so that we can read the value of this frequency.**
+
+```{r}
+# Write and submit code here!
+?geom_bar
+msleep |> filter(vore != 'NA') |> 
+    ggplot() + 
+    geom_bar(aes(x = vore, fill = vore), color = 'black') + 
+    scale_y_continuous(limits = c(0, 40), breaks = seq(0,40,2)) + 
+    labs(title = 'Different types of diets',
+         x = 'Types of diets',
+         y = 'frequency')
+```
+
+**Write sentences here!**
+
+
+### d. Dealing with many categories
+
+If there are many categories for a variable, the bar graph can become messy because of the overlapping labels:
+
+```{r}
+# Many categories for order
+ggplot(msleep) +
+  geom_bar(aes(x = order))
+```
+
+There are (at least) 2 solutions to fix this! 
+
+First, change the angle of the labels:
+
+```{r}
+# Solution 1 : Angle the axis labels within the theme
+ggplot(msleep) +
+  geom_bar(aes(x = order)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        # Angle the x-axis label to 45 degrees 
+```
+
+Second, flip the axis to display text horizontally on the vertical axis:
+
+```{r}
+# Solution 2 : Flip the orientation of the bars
+ggplot(msleep) + 
+  geom_bar(aes(y = order)) # switch the position from x to y
+```
+
+Right now, it is difficult to see which order is the rarest in `msleep`. It is usually a good practice to reorder the bars in increasing or decreasing order. The syntax is a little weird but it works:
+
+```{r}
+# Improve Solution 2 : Reorder the bars
+ggplot(msleep) +
+  geom_bar(aes(y = reorder(order, table(order)[order]))) # Add some labels to clean this up
+```
+
+Another way to deal with many categories is to regroup some categories together. For example, take a look at the conservation variable:
+
+```{r}
+# How many categories are there for conservation?
+table(msleep$conservation)
+```
+
+The [Wikipedia page about the conservation status of species](https://en.wikipedia.org/wiki/Conservation_status) considers that the conservation status of `en` and `vu` can be defined as `Threatened` while `nt`, `cd`, and `lc` are `Lower Risk` (there is no mention of `domesticated` but we can consider this category as a lower risk as well).
+
+#### **Try it! Create a new variable called `recoded_conservation` which only takes two values: `Threatened` or `Lower Risk`. Make sure to not recode the missing values inappropriately. Visualize the distribution of that new variable. Are mammals in `msleep` mostly threatened or at lower risk?**
+
+```{r}
+# Write and submit code here!
+msleep |>
+    filter(conservation != 'NA') |>
+    mutate(recoded_conservation = ifelse(conservation == 'en' | conservation == 'vu', 'Threatened', 'Lower Risk')) |>
+    
+    ggplot() + 
+    geom_bar(aes(x = recoded_conservation, fill = recoded_conservation), color = 'black') + 
+    scale_y_continuous(limits = c(0,48), breaks = seq(0,48,2)) +
+    labs(title = '?what?',
+         x = 'conservation status',
+         y = 'Frequency')
+```
+
+**Write sentences here!**
+
+
+## 3. Describing numeric variables
+
+When describing numeric variables, we may wonder what is a typical value (center) and how the values varies from each other (spread).
+
+### a. Using a histogram
+
+Unlike categorical variables, it doesn't necessarily make sense to visualize what *exact value* is the most common but rather focus on what *range of values* is the most common. A histogram represents how frequent some ranges of values (called bins) are. Let's use `geom_histogram()` to investigate what is a typical value of the total amount of daily sleep (in hours) and how it varies from mammal to mammal:
+
+```{r}
+# Define the graph with ggplot and basic aesthetics
+ggplot(msleep) +
+  geom_histogram(aes(x = sleep_total)) # use geom_histogram()
+```
+
+The bins in a histogram define the *ranges of values*. By default in `ggplot`, the number of bins is 30. We can adjust the bins by setting the number of bins or by setting the bin width:
+
+```{r}
+# Change the number of bins
+ggplot(msleep) +
+  geom_histogram(aes(x = sleep_total), bins = 20) # adjust the number of bins
+```
+
+```{r}
+# Change the bin width
+ggplot(msleep) +
+  geom_histogram(aes(x = sleep_total), binwidth = 5)  # adjust the bin width
+```
+
+It is still confusing what the limits of the bins are. We can adjust how the bins are cut by specifying the center of the first bin:
+
+```{r}
+# Change the bin width and center
+ggplot(msleep) +
+  geom_histogram(aes(x = sleep_total), 
+                 binwidth = 5, center = 2.5) # adjust width and center of the first bin
+```
+
+Noticed how the shape of the histogram changes depending on how we define the bins? We usually recommend to have at least 10 different bins to be able to "see" the variation in our data.
+
+#### **Try it! Let's create a better representation of the distribution of `sleep_total`! Adjust the previous histogram with 1) orange bars and a blue contour, 2) bins of 2 hours, starting at 0, 3) tick marks for each bin (Hint: use `scale_x_continuous()`), and 4) appropriate labels. Based on this histogram, how many hours do you think mammals typically sleep per day? Are all mammals sleeping about the same amount of hours?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = msleep) + 
+    geom_histogram(aes(x = sleep_total), color = 'blue', fill = 'orange', binwidth = 2, center = 1) + 
+    scale_x_continuous(limits = c(0,20), breaks = seq(0,20,2)) + 
+    labs(title = 'histogram of sleep',
+         x = 'hours of sleep',
+         y = 'frequency')
+```
+
+**Write sentences here!**
+
+
+### b. Reporting center and spread
+
+The center is a single value that represents a typical value for a numeric variable (we usually report the mean or median). The mean is the arithmetic average of numeric data: it is the sum of all data values divided by the number of observations. The median splits the data in two halves: into lower values and higher values.
+
+```{r}
+# Find the mean of total sleep
+mean(msleep$sleep_total)
+
+# Find the median of total sleep
+median(msleep$sleep_total)
+```
+
+About 10 hours of daily sleep seems to be typical for mammals in `msleep`.
+
+#### **Try it! Create a new variable called `brainsize` to differentiate between mammals with small and large brains using the median brain weight. Make sure to NOT include missing values. Represent the distribution of `brainsize` with the appropriate graph. Why does it make sense to see what we see?**
+
+```{r}
+# Write and submit code here!
+
+
+```
+
+**Write sentences here!**
+
+
+Another important measure to report is the spread of a numeric variable which represents how values differ from each other (we usually use standard deviation or IQR).
+
+```{r}
+# Find the standard deviation of total sleep
+sd(msleep$sleep_total)
+
+# Find the IQR of total sleep
+IQR(msleep$sleep_total) # Note: IQR = Q3 - Q1
+```
+
+The amount of sleep mammals get daily typically vary by about 4.5 hours (according to the standard deviation), or about 6 hours (according to the IQR).
+
+The shape of the distribution of a numeric variable will influence which statistics we prefer to report. We generally talk about two kinds of shapes: (approximately) symmetric or skewed (with one tail longer than another). 
+
+
+#### **Try it! Create a histogram to represent `brainwt` adjusting the bins appropriately. How would you describe the shape of this distribution? Report summary statistics (mean, median, sd, IQR). Which measure of center seems to better represent a typical value for body weight? Lastly, what does the warning message indicate?**
+
+```{r}
+# Write and submit code here!
+msleep |>
+    filter(brainwt != 'NA') |>
+    ggplot() +
+    geom_histogram(aes(x = brainwt), binwidth = 0.05, center = 0.025)
+
+summary(msleep$brainwt, na.rm = TRUE)
+
+```
+
+**Write sentences here!**
+
+
+### c. Other geoms
+
+An alternative to a histogram is a density plot which technically is a nonparametric method for estimating the probability density function of a continuous random variable (???). But basically, we are trying to draw a smoothed histogram, where the area under the curve equals one.
+
+```{r}
+# Define the graph with ggplot and basic aesthetics
+ggplot(msleep) +
+  geom_density(aes(x = sleep_total), fill = "blue")  # use geom_density(), fill with blue
+```
+
+Another common graph for numeric variables is a boxplot which represents the 5-number summary of a variable: minimum, first quartile, median, third quartile, maximum.
+
+```{r}
+# Define the graph with ggplot and basic aesthetics
+ggplot(msleep) +
+  geom_boxplot(aes(x = sleep_total)) # use geom_boxplot()
+```
+
+Note that the x-axis has no meaning. We can remove it:
+
+```{r}
+ggplot(msleep) +
+  geom_boxplot(aes(x = sleep_total))  + 
+  # Remove text and tick marks that have no meaning
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
+```
+
+Let's create a boxplot to represent `brainwt`. What's going on in this boxplot?**
+
+```{r}
+# Represent brain weight
+ggplot(msleep) +
+  geom_boxplot(aes(x = brainwt)) + 
+  # Remove text and tick marks that have no meaning
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
+```
+
+*Note: We got a warning again about 27 missing values.*
+
+The box appears very small because we had some very high values compared to the rest of the brain weights (R displays these values as "outlier"). But let's take a closer look at these high values:
+
+```{r}
+# Filter for very large brain weights
+msleep |>
+  filter(brainwt > 1)
+```
+
+These values make sense. We could consider a logarithmic scale to better visualize a numeric variable with extremely low and extremely high values:
+
+```{r}
+# Represent brain weight
+ggplot(msleep) +
+  geom_boxplot(aes(x = brainwt)) + 
+  # Remove text and tick marks that have no meaning
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank()) +
+  # Logarithmic scale
+  scale_x_log10() +
+  # Adjust label accordingly (we are not representing brainwt anymore!)
+  labs(x = "log(brain weight)")
+```
+
+Looks much better!

@@ -1,0 +1,175 @@
+---
+title: "Lab 4"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Austine Do, Graceanne Becker, Catherine Zhong
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will explore the `who2` dataset which comes with `tidyr`. Let's first load the packages we will need to complete this lab (`tidyr`, `dplyr` and `ggplot2`, all contained in`tidyverse`):
+
+```{r, message=FALSE}
+# Load the package
+library(tidyverse) 
+```
+
+Take a quick look at the dataset:
+
+```{r}
+# Take a quick look
+head(who2)
+```
+
+The `who2` dataset contains information about tuberculosis (TB) cases per country over the years. The TB cases are reported in the columns `sp_m_014:rel_f_65` following these conventions:
+
+1.  All columns denote `new` cases.
+
+2.  The first two/three letters describe the method of diagnosis: `rel` = relapse, `sn` = negative pulmonary smear, `sp` = positive pulmonary smear, `ep` = extra pulmonary.
+
+3.  The next letter indicates the gender category: females `f` or males `m`.
+
+4.  The remaining numbers gives the age group (for example, `014` means 0-14 years old).
+
+The goal of the lab is to compare tuberculosis (TB) cases across countries and over time, comparing number of cases per age group or per gender category.
+
+------------------------------------------------------------------------
+
+### Question 1: (2 pts)
+
+Is the `who2` dataset tidy for comparing tuberculosis (TB) cases across countries and over time? Why/ Why not?
+
+**The data set is not tidy because each of the variables in the data set does not have its own column.**
+
+------------------------------------------------------------------------
+
+### Question 2: (4 pts)
+
+Using a `tidyr` function, put all of the column names with format *diagnosis_gender_age* into a single column (call it `diagnosis_gender_age`) and all of their cell values into another single column (call it "cases"). Call the resulting dataset `long_who`. How many rows does the `long_who` dataset have?
+
+```{r}
+# pivoting the dataset longer and calling it 'long_who'
+who2_col_names <- colnames(who2)
+
+long_who <- pivot_longer(who2,
+                         cols = who2_col_names[3:58],
+                         names_to = 'diagnosis_gender_age',
+                         values_to = 'cases')
+long_who
+glimpse(long_who)
+```
+
+**long_who has 405,440 rows in the data set.**
+
+------------------------------------------------------------------------
+
+### Question 3: (4 pts)
+
+Next, separate the `diagnosis_gender_age` variable into `diagnosis`, `gender`, and `age`. Call the resulting dataset `tidy_who`. Is that data tidy?
+
+```{r}
+# This separates the diagonsis_gender_age into appropriate column variables
+tidy_who <- separate(long_who, diagnosis_gender_age, into = c('diagonsis', 'gender', 'age'), sep = '_')
+tidy_who
+```
+
+**The data set tidy_who is now tidy since country, year, diagnosis, gender, and age now have their own column and each row/observation is distinct.**
+
+------------------------------------------------------------------------
+
+### Question 4: (3 pts)
+
+Let's take a look at missing values in `tidy_who`. There are some missing values for `cases`. But does a missing value mean that there was no case of TB for a specific country/year or does it mean that the WHO did not report the number of TB cases for a specific country/year? *Hint: Are there any zeros in our `tidy_who` dataset?*
+
+```{r}
+# Filtering tidy_who to see how many rows has 0 and NA values in the `cases` column
+tidy_who |>
+    filter(cases == 0)
+
+tidy_who |>
+    filter(is.na(cases))
+```
+
+**There are 11,080 rows/observations that contain 0 for cases so that does not means that the rows/observations that contains missing values for cases had 0 cases, they just were not reported in the data set for that year, diagonsis, age group, gender, and country.**
+
+------------------------------------------------------------------------
+
+### Question 5: (4 pts)
+
+What about missing years for some countries? These missing years would not appear explicitly in the dataset, they just would not be there... Using `group_by()` and `summarize`, find the total number of distinct years for each country in `tidy_who`. Also report the minimum and maximum year contained in the dataset for each country. Which countries had less than the expected 34 years (1980 to 2013)? Why do you think these years are missing? *Hint: To understand why we have missing years, look at `Serbia & Montenegro`. What happened to this country in 2005?*
+
+```{r}
+# Finding the number of distinct years by country and then finding the countries with missing years in the data set
+tidy_who |>
+    group_by(country) |>
+    summarize(num_of_distinct_year = n_distinct(year), max_year = max(year), min_year = min(year))
+
+tidy_who |>
+    group_by(country) |>
+    summarize(num_of_distinct_year = n_distinct(year)) |>
+    filter(num_of_distinct_year < 34)
+
+
+```
+
+**There are typically 34 distinct years per country. The minimum year is 1980 and the maximum year is 2013.The countries that had less than expected 34 years are `Bonaire, Saint Eustatius and Saba`, `Curacao`, `Montenegro`, `Netherlands Antilles`, `Serbia`, `Serbia & Montenegro`, `Sint Maarten`, `South Sudan`, `Timor-Leste`. We think these years are missing because of political conflict and various declarations of independence affecting the status of each country, therefore affecting accurate data reporting for those various countries.**
+
+------------------------------------------------------------------------
+
+### Question 6: (6 pts)
+
+Investigate the total number of TB cases (adding up cases over all years and across all methods of diagnosis), in the countries of your choice (each group member picks a country), and comparing either age groups or gender categories. Write a research question that your investigation would answer. *For example, (create a question of your own, don't use this one!): How did the total number of TB cases differ between age groups in Belgium, France, and Germany?*
+
+**How did the total number of cases of all types of TB differ between genders across Turkey, Spain, and Australia?**
+
+Answer your research question using some `dplyr` functions and a `ggplot` visualization. Why should we be careful in interpreting what we see?
+
+```{r}
+# Filtering the data set to only contain Turkey, Spain, and Australia, grouping 
+# by country and gender, then visualizing the total number of cases of all 
+# types of TB grouped by gender and country
+
+tidy_who |>
+    filter(country %in% c('Turkey', 'Spain','Australia')) |>
+    group_by(country, gender) |>
+    summarize(num_of_case = sum(cases, na.rm = TRUE)) |>
+    ggplot(aes(x = country, y = num_of_case, fill = gender)) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    labs(y = 'number of total cases')
+    
+```
+
+**We should be careful about the data visualization because there could be outliers and NA values causing variation in the data. Also, this is a small sample size of countries where there could be missing observations so the visualization could be misleading.**
+
+------------------------------------------------------------------------
+
+### Question 7: (1 pt)
+
+After investigating how the number of TB cases might change over time, did the data match your expectations or not? If the data differed from your expectation, provide a possible explanation for why the data differed from what you expected.
+
+**The data matches our expectation because male cases exceed females for each of the countries we explored in the data set. This shows that there might be a plausible relation between all types of TB cases across gender per country.**
+
+------------------------------------------------------------------------
+
+### Formatting: (1 pt)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope and to identify your group members.

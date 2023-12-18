@@ -1,0 +1,220 @@
+---
+title: "Lab 9"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Austine Do, Graceanne Becker, Catherine Zhong
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will continue exploring data originally collected by researchers at the Johns Hopkins Bloomberg School of Public Health. Let's first load the appropriate packages for today:
+
+```{r, message=FALSE}
+library(tidyverse)
+library(plotROC)
+library(caret)
+library(rpart)
+```
+
+Let's re-upload the data from Github and take a quick look again:
+
+```{r}
+pollution <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//pm25.csv") |>
+  mutate(violation = ifelse(value > 12, 1, 0))
+
+# Take a quick look!
+head(pollution)
+```
+
+The goal of the lab is to make predictions for the PM2.5 levels with 3 different models and perform cross-validation.
+
+------------------------------------------------------------------------
+
+### Question 1 (3 pts)
+
+In this report, you will choose to focus on either predicting the PM2.5 values at a given location (`value`) or predicting whether a given location is in `violation` of the national ambient air quality standards (with a `value` greater than 12 $\mu$g/m$^3$) or not based on `lat`, `lon`, `pov`, and `zcta_pop`.
+
+Which outcome variable will you focus on?
+
+**The outcome variable we will focus on is the PM2.5 value at a given location so the outcome variable `value`**
+
+Which corresponding measure should be reported to assess the performance of the model?
+
+**The RSME and the Adjusted R-squared values are the performance measures we need to report for the model.**
+
+To assess the performance of the models, we will perform cross-validation. More specifically, we will perform a 10-fold cross-validation. What's the idea behind the following code?
+
+```{r}
+# Make this example reproducible
+set.seed(322)
+
+# Choose number of folds
+k = 10 
+
+# Randomly order rows in the dataset
+data <- pollution[sample(nrow(pollution)), ] 
+
+# Create k folds from the dataset
+folds <- cut(seq(1:nrow(data)), breaks = k, labels = FALSE)
+```
+
+**The idea of the code is to randomize the order of the rows in the data set and then create 10 folds or 10 subsets of data from the original dataset for cross validation testing of our model later on.**
+
+------------------------------------------------------------------------
+
+### Question 2 (6 pts)
+
+Your first model will either be a linear regression or logistic regression model. Which one is appropriate for the outcome you picked?
+
+**Our model will be a linear regression since our outcome variable is numeric.**
+
+Complete the following code to perform cross-validation for this regression model:
+
+```{r, warning=FALSE}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i)
+  train_model <- lm(value ~ lon + lat + zcta_pop + pov, data = train_not_i)
+  # Performance listed for each test data (fold i)
+  perf_k[i] <- sqrt(mean((
+    test_i$value - predict(train_model, newdata = test_i))^2,
+    na.rm = TRUE))
+
+}
+```
+
+Write a sentence to report the average performance and how the performance varies from fold to fold. Round both measures to 0.01.
+
+```{r}
+# Performance of the model using cross validation for 10 folds in the data
+perf_k 
+mean(perf_k)
+sd(perf_k)
+```
+
+**The average RSME for the linear regression model is 2.46 and the variance of the performance of the model is 0.34**
+
+------------------------------------------------------------------------
+
+### Question 3 (6 pts)
+
+Your second model will use the k-Nearest Neighbors algorithm. Which kNN function is appropriate for the outcome you picked: `knnreg` or `knn3`?
+
+**The appropriate function to use is `knnreg` since our outcome variable is numeric**
+
+Complete the following code to perform cross-validation with 5 nearest neighbors:
+
+```{r, warning=FALSE}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i)
+  train_model <- knnreg(value ~ lon + lat + zcta_pop + pov, data = train_not_i, k = 5)
+  # Performance listed for each test data (fold i)
+  perf_k[i] <- sqrt(mean((
+    test_i$value - predict(train_model, newdata = test_i))^2,
+    na.rm = TRUE))
+}
+```
+
+Write a sentence to report the average performance and how the performance varies from fold to fold. Round both measures to 0.01.
+
+```{r}
+# Performance of the model using cross validation for 10 folds in the data
+perf_k
+mean(perf_k)
+sd(perf_k)
+```
+
+**The average RSME for the kNN model is 2.71 and the variance of the performance of the model is 0.25**
+
+------------------------------------------------------------------------
+
+### Question 4 (6 pts)
+
+Your third model will use the decision tree algorithm. Which function is used to build a decision tree?
+
+**The function used to build a decision tree is `rpart()`**
+
+Complete the following code to perform cross-validation for this decision tree:
+
+```{r, warning=FALSE}
+# Initialize a vector to keep track of the performance for each k-fold
+perf_k <- NULL
+
+# Use a for-loop to get performance for each k-fold
+for(i in 1:k){
+  # Split data into train and test data
+  train_not_i <- data[folds != i, ] # train data = all observations except in fold i
+  test_i <- data[folds == i, ]  # test data = observations in fold i
+  
+  # Train model on train data (all but fold i)
+  train_model <- rpart(value ~ lon + lat + zcta_pop + pov, data = train_not_i)
+  # Performance listed for each test data (fold i)
+  perf_k[i] <- sqrt(mean((
+    test_i$value - predict(train_model, newdata = test_i))^2,
+    na.rm = TRUE))
+}
+```
+
+Write a sentence to report the average performance and how the performance varies from fold to fold. Round both measures to 0.01.
+
+```{r}
+# Performance of the model using cross validation for 10 folds in the data
+perf_k
+mean(perf_k)
+sd(perf_k)
+```
+
+**The average RSME of this decision tree model is 1.93 and the variance of the performance of the model is 0.37.**
+
+------------------------------------------------------------------------
+
+### Question 5 (3 pts)
+
+Comparing the cross-validation for each of the three models, which model appears to perform better? Why?
+
+**The model that appears to perform the best out of the three is the decision tree model because it has the lowest RSME and a comparable variance for model performance across the three models.**
+
+------------------------------------------------------------------------
+
+### Formatting: (1 pt)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope and to identify your group members.

@@ -1,0 +1,338 @@
+---
+title: "Worksheet 7: Joining/Merging"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will demonstrate the different principles of data analysis using what we have learned so far!
+
+
+## 1. Set up and introduction to dataset
+
+Let's load `tidyverse` which contains the `dplyr` package:
+
+```{r}
+# Load a package
+library(tidyverse)
+```
+
+Consider the following datasets containing information about some universities in Texas which was split into 3 tables:
+
+```{r}
+# Some universities and some locations
+university_city <- data.frame(
+  university = c("University of Texas","Texas State University","University of Houston", "Texas A&M"),
+  location = c("Austin", "San Marcos", "Houston", "College Station"))
+
+# Enrollment for Fall 2018
+university_F2018 <- data.frame(
+  university = c("University of Texas", "Texas State University", "University of Houston"),
+  enrollment_2018 = c(51684, 38644, 46355))
+
+# Enrollment for Fall 2021
+university_F2021 <- data.frame(
+  university = c("Texas A&M", "University of Texas", "Texas State University"),
+  enrollment_2021 = c(72982, 51992, 37864))
+
+# Take a look at these three datasets
+university_city
+university_F2018
+university_F2021
+```
+
+We will discuss joining functions to combine these datasets in different ways.
+
+
+## 2. Joining datasets
+
+To join datasets, we first need to identify a **key variable** (a variable, or sometimes a set of variables, that defines a unique row in a dataset). What is the key variable to join the datasets above?
+
+### a. Inner join
+
+Join datasets using `inner_join()` to get the information they have in common:
+
+```{r}
+# Join 2 datasets with `inner_join()`
+inner_join(university_F2018, university_F2021,
+           # Join by the key variable
+           by = "university") 
+```
+
+Why we only get 2 rows?
+
+### b. Left join
+
+Join datasets using `left_join()` to keep information from the "left" dataset and add information from the "right" dataset:
+
+```{r}
+# Join 2 datasets with `left_join()` 
+left_join(university_F2018, university_F2021, by = "university")
+```
+
+There was some observation in the left dataset that did not appear in the right dataset. How did R handle that?
+
+#### **Try it! Join the information of `university_city` to either `university_F2018` or `university_F2021` with `left_join()`. Then swap the left and right datasets. How do the resulting joined datasets compare?**
+
+```{r}
+# Write and submit code here!
+left_join(university_city, university_F2018, by = 'university')
+left_join(university_F2018, university_city, by = 'university')
+```
+
+**Write sentences here!**
+
+
+### c. Right join
+
+This function is doing the opposite of `left_join()` so it is not widely used.
+
+```{r}
+# Join 2 datasets with `right_join()`
+right_join(university_city, university_F2018, by = "university")
+```
+
+Which `left_join()` above rendered a similar output?
+
+### d. Full join
+
+Join datasets using `full_join()` to keep information from both datasets:
+
+```{r}
+# Join 2 datasets with `full_join()`
+full_join(university_F2018, university_F2021, by = "university")
+```
+
+Note how R added missing values for the universities that were in only one of these two datasets.
+
+#### **Try it! Copy/Paste the code above and also join the information of `university_city`. Hint: use a pipe `|>` and another `..._join()` function. Does it matter which joining function you use?**
+
+```{r}
+# Write and submit code here!
+full_join(university_F2018, university_F2021, by = "university") |> 
+    left_join(university_city, by = 'university')
+```
+
+**Write sentences here!**
+
+
+### e. Anti join
+
+We can use `anti_join()` to get information from the left dataset for which there is no information in the right dataset:
+
+```{r}
+# Find missing observations with `anti_join()`
+anti_join(university_F2018, university_F2021, by = "university")
+```
+
+The University of Houston did not have a value for enrollment in 2021.
+
+#### **Try it! Find if any university did not report enrollment in 2018 with `anti_join()`.**
+
+```{r}
+# Write and submit code here!
+anti_join(university_city, university_F2018, by = 'university')
+```
+
+**Write sentences here!**
+
+
+### f. Semi join
+
+What happens if we use `semi_join()`?
+
+```{r}
+# Using `semi_join()`
+semi_join(university_F2018, university_F2021, by = "university")
+
+# What is the difference with this code?
+semi_join(university_F2021, university_F2018, by = "university")
+```
+
+The `semi_join()` is like an `inner_join()` but only keeping the variables of the left dataset.
+
+
+## 3. Considering other options when joining
+
+### a. Auto-suffixing
+
+Here is another dataset reporting the county for each university:
+
+```{r}
+# Another dataset which reported counties for campus location
+university_county <- data.frame(
+  university = c("University of Texas","Texas State University","University of Houston", "Texas A&M"),
+  location = c("Travis", "Hays", "Harris", "Brazos"))
+university_county
+```
+
+What happens if we are joining 2 datasets with the same variable name that is not a key?
+
+```{r}
+# Join the two types of locations
+left_join(university_city, university_county, by = "university")
+```
+
+Any columns that have the same name in both datasets but are not used to join on will be given suffixes `.x` and `.y` to specify which original dataset they came from (left and right, respectively). You can modify the default suffix:
+
+```{r}
+# Join the two types of locations
+left_join(university_city, university_county, by = "university",
+          # To give names to the suffix, use `suffix =`
+          suffix = c(".city",".county"))
+```
+
+### b. No matching key
+
+Some datasets may refer to the same variable with different names. Consider the following dataset:
+
+```{r}
+# Another dataset that contains the number of academic institutions in the system
+university_system <- data.frame(
+  institution = c("University of Texas", "Texas A&M", "University of Houston", "Texas State University"),
+  nb_institutions = c(9, 11, 4, 4))
+university_system
+```
+
+What happens if we are joining 2 datasets that have different names for the key variable?
+
+```{r, eval = FALSE}
+# Join the two datasets with different key variables
+left_join(university_city, university_system)
+```
+
+There is an error because R did not find any common variable (no key variable). We would need to specify the name of the key in each dataset:
+
+```{r}
+# Join the two datasets with different key variables
+left_join(university_city, university_system, 
+          # and specify which variables match across datasets with `c()`
+          by = c("university" = "institution"))
+```
+
+*Note: The order in which we specify the match for the key variable matters (e.g., try to replace the statement matching keys by `c("institution" = "university")`; it should give you an error). Also, note that only the first name of the key variable is kept in the joined dataset.*
+
+### c. More observations (more rows)
+
+Not technically a joining function but can be useful so let's briefly introduce `rbind()` which adds `r`ows from a dataset to another. Consider that we would like to add information about The University of Texas in El Paso:
+    
+```{r}
+# Use `rbind()` to add rows (when datasets have the same columns)
+rbind(
+  # top dataset
+  university_city,
+  # bottom dataset
+  data.frame(university = "University of Texas",
+             location = "El Paso"))
+```
+
+Alright, now we have duplicates, which is what we will talk about next :)
+
+### d. Duplicates
+
+Some datasets may have duplicates for the key variable. Consider the resulting dataset from above:
+
+```{r}
+# Save the previous resulting dataset as a new dataset called `university_city2`
+university_city2 <- rbind(university_city, data.frame(university = "University of Texas",
+                                                      location = "El Paso"))
+university_city2
+```
+
+What happens if we are joining this dataset with the size of enrollment?
+
+```{r}
+# Joining 2 datasets with a duplicate key
+left_join(university_city2, university_F2018, by = "university")
+```
+
+Is the information contained in this table correct?
+
+#### **Try it! Join the information `university_system` to `university_city2`. Is the information contained in the resulting dataset correct?**
+
+```{r}
+# Write and submit code here!
+left_join(university_city2, university_system, by = c('university' = 'institution'))
+```
+
+**Write sentences here!**
+
+
+It is sometimes useful to add repeating information for some rows that share the same key. We just need to be careful that it makes sense!
+
+### e. Several key variables
+
+Sometimes one variable is not enough to identify a unique match. Previously, we were not able to join the information of the enrollment for the University of Texas because we should also have taken the location into account. Consider these two datasets:
+
+```{r}
+# Enrollment for UT in Fall 2018
+UT_F2018 <- data.frame(
+  university = c("University of Texas", "University of Texas"),
+  location = c("Austin", "El Paso"),
+  enrollment_2018 = c(51684, 25151))
+
+# Enrollment for UT in Fall 2021
+UT_F2021 <- data.frame(
+  university = c("University of Texas", "University of Texas"),
+  location = c("Austin", "El Paso"),
+  enrollment_2021 = c(51992, 24003))
+```
+
+What key variables should be take into account to identify a unique row?
+
+```{r}
+# Join 2 datasets with 2 key variables
+left_join(UT_F2018, UT_F2021, 
+          # List the key variables with `c()`
+          by = c("university", "location"))
+```
+
+Here is what would happen if we ignored that second key variable:
+
+```{r}
+# Join 2 datasets with 2 key variables
+left_join(UT_F2018, UT_F2021, by = "university")
+```
+
+Would this information be correct?
+
+## 4. Put it all together!
+
+We created many datasets. Let's focus on these five datasets:
+
+```{r}
+university_city
+university_county
+university_system
+university_F2018
+university_F2021
+```
+
+The joining functions we discussed only take two inputs to join a "left" dataset and a "right" dataset. What if we want to join the 4 datasets above? We can use pipes `|>` to repeat the joining.
+
+#### **Try it! Continue the following code to join all information from the five datasets above (be careful about some options we should pay attention to when joining). Finally, add a new variable which reports the difference in enrollment between 2018 and 2021. Any university had an increase in enrollment? a decrease?**
+
+```{r}
+# Write and submit code here!
+full_join(university_city, university_county, by = 'university', suffix = c('.city', '.county')) |>
+    full_join(university_system, by = c('university' = 'institution')) |>
+    left_join(university_F2018, by = 'university') |>
+    left_join(university_F2021, by = 'university')
+```
+
+**yay**

@@ -1,0 +1,243 @@
+---
+title: "Lab 8"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Austine Do, Graceanne Becker, Catherine Zhong
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will explore data that were originally collected by researchers at the Johns Hopkins Bloomberg School of Public Health. Let's first load the appropriate packages for today:
+
+```{r, message=FALSE}
+library(tidyverse)
+library(ggmap)
+library(plotROC)
+```
+
+Let's upload the data from Github and take a quick look:
+
+```{r}
+pollution <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//pm25.csv")
+
+# Take a quick look!
+head(pollution)
+```
+
+It contains the following variables:
+
+| Variable Name       | Description                                                                    |
+|:--------------------|:-------------------------------------------------------------------------------|
+| state, county, city | Name of the state, county, city where monitor is located                       |
+| value               | Annual level of PM2.5 in $\mu$g/m$^3$                                          |
+| zcta                | ZIP code where monitor is located                                              |
+| lat                 | Latitude coordinate of monitor location                                        |
+| lon                 | Longitude coordinate of monitor location                                       |
+| pov                 | Percentage of ZIP code population (where monitor is located) living in poverty |
+| zcta_pop            | Population of ZIP code where monitor is located (based on 2010 Census)         |
+| CMAQ                | Computer model estimate of PM2.5 levels                                        |
+
+The goal of the lab is to make predictions for the PM2.5 levels with two different approaches.
+
+------------------------------------------------------------------------
+
+### Question 1 (6 pts)
+
+Let's start exploring the dataset! Which state has the largest number of PM2.5 monitors within the state?
+
+```{r}
+# Finding the state with the largest number PM2.5 monitors
+pollution |>
+    group_by(state) |>
+    summarize(count = n()) |>
+    arrange(desc(count))
+```
+
+**California has the largest number of PM2.5 monitors with 85 PM2.5 monitors in the state.**
+
+Find the mean of the PM2.5 values within each state. Which state in the U.S. has the highest mean PM2.5 value? Which state has the lowest mean PM2.5 value?
+
+```{r}
+# Finding the states with the highest and lowest mean PM2.5 value
+pollution |>
+    group_by(state) |>
+    summarize(mean_PM2.5_value = mean(value)) |>
+    arrange(desc(mean_PM2.5_value))
+
+pollution |>
+    group_by(state) |>
+    summarize(mean_PM2.5_value = mean(value)) |>
+    arrange(mean_PM2.5_value)
+```
+
+**The state with the highest mean PM2.5 value is West Virginia and the state with the lowest mean PM2.5 value is Maine**
+
+We can represent the values of PM2.5 on a map! Consider the code below that creates a map of the United States divided by states. Remember that `ggplot` works in layers: add a layer to the code below to represent the PM2.5 values from the `pollution` dataset across the states. Make sure to add colors to distinguish between lower vs higher values.
+
+```{r}
+# Create data for a map of the United States divided by states
+state_data <- map_data("state")
+
+# Create a map with `ggplot`
+ggplot() +
+    geom_polygon(data = state_data, aes(x = long, y = lat, group = group), 
+               fill = "white", color = "grey", size = 1) +
+    # Add a layer with data from `pollution`
+    geom_point(data = pollution, aes(x = lon, y = lat, color = value)) +
+    labs(title = 'Plot of the PM2.5 value across the U.S.',
+         x = 'longitude',
+         y = 'latitude',
+         color = 'PM2.5 value') +
+    scale_color_gradient(low = "blue", high = "red")
+```
+
+Where are the maximum values of PM2.5 located?
+
+**The maximum values of PM2.5 are located mostly in California.**
+
+------------------------------------------------------------------------
+
+### Question 2 (3 pts)
+
+Create a new variable called `violation` that takes a value of 1 if the location has a value of PM2.5 that is in violation of the national standards (greater than 12 $\mu$g/m$^3$) and is 0 if that location is not in violation. Add this new variable to the `pollution` dataset.
+
+```{r}
+# Adding the 'violation' variable to the pollution dataset
+pollution <- pollution |>
+                mutate(violation = ifelse(value > 12, 1, 0))
+```
+
+Using your newly created `violation` variable, what percentage of all of the locations in the dataset are in violation of the national PM2.5 standards?
+
+```{r}
+# Calculating the percentage of locations in the dataset that violate PM2.5 standards
+sum(pollution$violation)/nrow(pollution)
+```
+
+**About 32% of all locations in the dataset are in violation of the national PM2.5 standards**
+
+------------------------------------------------------------------------
+
+### Question 3 (2 pts)
+
+Next, we will build two different models to predict the PM2.5 levels, using some other variables:
+
+-   A linear regression model to predict the PM2.5 values at a given location.
+-   A logistic regression model to predict whether a given location is in violation of the national ambient air quality standards.
+
+What is the outcome variable for each model?
+
+**The outcome variable is PM2.5 value for the linear regression model and the outcome variable is violation status for the logistic regression model.**
+
+To do so, we will split the `pollution` dataset into two parts, a `train_data` set and a `test_data` set:
+
+-   The train set will be all of the locations outside the state of Texas.
+-   The test set will be all of the locations inside the state of Texas.
+
+Create the `train_data` set and the `test_data` set as described above:
+
+```{r}
+# Creating the training and test dataset for our models
+train_data <- pollution |>
+                    filter(state != 'Texas')
+
+test_data <- pollution |>
+                    filter(state == 'Texas')
+```
+
+------------------------------------------------------------------------
+
+### Question 4 (6 pts)
+
+Let's build a linear regression model called `train_lin` to predict the `value` variable in the `train_data` set. Only use the following predictors: `lat`, `lon`, `pov`, and `zcta_pop`. Which predictors seem to be the most useful in predicting the PM2.5 values?
+
+```{r}
+# Building the linear regression model
+train_lin <- lm(value ~ lat + lon + pov + zcta_pop, data = train_data)
+summary(train_lin)
+```
+
+**The variables that seems the most significant/useful in predicting the PM2.5 value are `lon`, `pov`, and `zcta_pop` for the linear regression model.**
+
+Use the linear model to make predictions for the violation in the `train_data` set and compute the corresponding RMSE, as shown below. Then compute the value of RMSE when applying the linear model to the `test_data` set.
+
+**Get rid if `eval = FALSE` below before knitting your lab report.**
+
+```{r}
+# Calculate RMSE for predictions in train data
+sqrt(mean((train_data$value - predict(train_lin, newdata = train_data))^2))
+
+# Calculate RMSE for predictions in test data
+sqrt(mean((test_data$value - predict(train_lin, newdata = test_data))^2))
+```
+
+How well does our model predict the values of PM2.5 for the train set vs for the test set?
+
+**The test set performs better since the RSME is lower than the train set by about 0.5.**
+
+------------------------------------------------------------------------
+
+### Question 5 (6 pts)
+
+Let's build a logistic regression model called `train_log` to predict the `violation` variable in the `train_data` set. Only use the following predictors: `lat`, `lon`, `pov`, and `zcta_pop`. Which predictors seem to be the most useful in predicting the violation?
+
+```{r}
+# Building the logistic regression model
+train_log <- glm(violation ~ lat + lon + pov + zcta_pop, data = train_data, family = 'binomial')
+summary(train_log)
+```
+
+**The variables that seems significant/useful in predicting the violation status are `lon`, `pov`, and `zcta_pop`.**
+
+Use the logistic model to make predictions for the violation in the `train_data` set and compute the corresponding AUC, as shown below. Then compute the value of AUC when applying the logistic model to the `test_data` set.
+
+**Get rid if `eval = FALSE` below before knitting your lab report.**
+
+```{r}
+# Calculate AUC for predictions in train data
+calc_auc(ggplot(train_data) +
+           geom_roc(aes(d = violation, 
+                        m = predict(train_log, type = "response"))))$AUC
+
+# Calculate AUC for predictions in test data
+calc_auc(ggplot(test_data) +
+           geom_roc(aes(d = violation, 
+                        m = predict(train_log, type = "response", newdata = test_data))))$AUC
+```
+
+How well does our logistic model indicate whether a given location is in violation of the national ambient air quality standards for the train set vs for the test set?
+
+**Logistic model performs better for the train set than for the test set in predicting whether the given location is in violation of the national ambient air quality standards.**
+
+------------------------------------------------------------------------
+
+### Question 6 (1 pt)
+
+After investigating what features of a location seem to affect the PM2.5 levels, did the data match your expectations or not? If the data differed from your expectation, provide a possible explanation for why the data differed from what you expected.
+
+**The data did seem to match our expectations as we expected California to have some of the highest PM2.5 and some state in the Northern parts of the U.S. to have some of the lowest PM2.5 levels (that being Maine, etc.).**
+
+------------------------------------------------------------------------
+
+### Formatting: (1 pt)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope and to identify your group members.

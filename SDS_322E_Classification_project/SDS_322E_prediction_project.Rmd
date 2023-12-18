@@ -1,0 +1,364 @@
+---
+title: "Classification and Prediction of Austin Animal Center Intakes and Outcomes"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+## 1) Introduction
+
+Our group chose the Austin Animal Center Intakes and Outcomes Dataset. After sifting through the variety of datasets offered to us by the city of Austin, we were most interested in this dataset. We chose this dataset because of our interest in the animals, and the protection and resources the Austin Animal Center offers to the local animal community. All of our group members have volunteered recently with various Austin animal shelters, and we have experience with pet ownership. By analyzing this data, we can be more aware of the trends of activity in our community shelter, so we know the best supplies to donate. Also, we will become more educated about responsible pet ownership and the pets most in need of adoption.
+
+The variables of interest in the dataset are Animal ID, Name upon Intake, Date/Time for Intake, Date/Time for Outtake, Intake Type, Intake Condition, Sex upon Intake, Animal Type Intake, Age Upon Intake, Breed upon Intake, Color upon Intake, & Outcome Type. A unique row represents an unique animal that has been brought into the Austin Animal Center.
+
+Research questions our data analysis will answer:
+
+1.  On average how long does a typical animal spend in the Austin Animal Center?
+2.  What is the most common animal type at the Austin Animal Shelter?
+3.  Is there a relationship between the age of an animal and the number of days an animal spends in the Austin Animal Center?
+
+We expect most animals to spend a considerable amount of time in the shelter, approximately a month. This is because the adoption process can be quite lengthy and sometimes costly for people. Shelters must ensure all animals have up to date vet records and owners have received a background check before adoption can take place.
+
+We expect the most common animal type at the shelter to be strays, specifically dogs. This is because most people prefer purebred dogs, so dogs have a harder time being adopted. When someone adopts an animal, they form a close bond with it, so it's unlikely that there will be a significant amount of animals surrendered or abandoned.
+
+We expect that the age of animals that remain in shelters will tend to be higher than those that are rehomed, either adopted or returned to the original home. This is because most people prefer to adopt animals at younger ages, so they can spend most of the animal's life with them. Younger animals are also generally cuter and people are drawn to this.
+
+## 2) Method
+
+```{r}
+# Importing necessary libraries
+library(readr)
+library(tidyverse)
+library(plotROC)
+library(stringr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+```
+
+Here we are loading and exploring the structure of the dataset to help us better understand what we need to do in order to combine and tidy the dataset for our analysis
+
+```{r}
+aac_intakes <- read.csv('Austin_Animal_Center_Intakes_20231120.csv')
+aac_outakes <- read.csv('Austin_Animal_Center_Outcomes_20231120.csv')
+
+str(aac_intakes)
+str(aac_outakes)
+```
+
+**Dataset tidying**
+
+The Austin Animal Center intakes datasets starts with 128720 rows and 12 columns and the Austin Animal Center outakes dataset starts 128572 rows and 12 columns. We begin by removing duplicate Animal IDs from the dataset to simplify the data and not include animals that have been to the shelter multiple times. Then we joined the intakes and outakes by Animal ID to match observations of each animals to each other in both the datasets. After joining the dataset, we filter the variables we wanted to keep in the final tidy dataset and filtered it so that it only included cats and dogs. Finally we performed multiple alterations to the dataset such as separating and formatting dates variables, added/created 5 new variables without altering the original data (these new variables are based on data information, color, animal type, animal outcome, and age), and finally removed rows/observations that were incomplete (had missing data or NA values). Our final tidy dataset contains 118695 rows and 19 columns.
+
+```{r}
+# Removes animals that have been in the shelter multiple times
+aac_intakes <- aac_intakes |>
+    group_by(Animal.ID) |>
+    filter(n() == 1) |>
+    ungroup()
+aac_outakes <- aac_outakes |>
+    group_by(Animal.ID) |>
+    filter(n() == 1) |>
+    ungroup()
+
+# Join the intakes and outakes datasets
+aac_joined <- inner_join(aac_intakes, aac_outakes,
+                         by = 'Animal.ID',
+                         suffix = c('.intake', '.outake'))
+
+aac_joined <- aac_joined |>
+    # Selecting the necessary column variables for our final tidy dataset
+    select(Animal.ID, Name.intake, DateTime.intake, DateTime.outake, Intake.Type,
+           Intake.Condition, Sex.upon.Intake, Animal.Type.intake, Age.upon.Intake,
+           Breed.intake, Color.intake, Outcome.Type) |>
+    filter(Animal.Type.intake %in% c('Dog', 'Cat')) |>
+    # Cleaning DateTime column variables
+    separate(DateTime.intake, into = c('DATE.intake', 'TIME.intake'), sep = ' ',
+             convert = TRUE, extra = 'merge') |>
+    separate(DateTime.outake, into = c('DATE.outake', 'TIME.outake'), sep = ' ',
+             convert = TRUE, extra = 'merge') |>
+    # Converting DATE columns into date variable type
+    mutate(DATE.intake = as.Date(DATE.intake, format = '%m/%d/%Y')) |>
+    mutate(DATE.outake = as.Date(DATE.outake, format = '%m/%d/%Y')) |>
+    # Adding a column that represents days in the shelter (our outcome variable)
+    mutate(Days.in.shelter = as.numeric(DATE.outake - DATE.intake)) |>
+    # Adding column that represents black color status variable
+    mutate(Black.color.status = if_else(str_detect(Color.intake, '(?i)black'), 1, 0)) |>
+    # Creating variable Animal.type
+    mutate(Animal.type = case_when(tolower(Animal.Type.intake) == 'dog' ~ 0,
+                                   tolower(Animal.Type.intake) == 'cat' ~ 1,
+                                   TRUE ~ 2)) |>
+    mutate(Animal.outcome = case_when(tolower(Outcome.Type) == 'adoption' ~ 1,
+                                      tolower(Outcome.Type) == 'return to owner' ~ 1,
+                                      tolower(Outcome.Type) == 'rto-adopt' ~ 1,
+                                      TRUE ~ 0)) |>
+    mutate(year.age.intake = case_when(
+        grepl('year', Age.upon.Intake) ~ as.numeric(gsub('\\D', '', Age.upon.Intake)),
+        grepl('month', Age.upon.Intake) ~ as.numeric(gsub('\\D', '', Age.upon.Intake)) / 12,
+        grepl('week', Age.upon.Intake) ~ as.numeric(gsub('\\D', '', Age.upon.Intake)) / 52,
+        grepl('day', Age.upon.Intake) ~ as.numeric(gsub('\\D', '', Age.upon.Intake)) / 365,
+        TRUE ~ NA_real_
+    )) |>
+    # removing any rows with incomplete data
+    na.omit()
+```
+
+## 3) EDA
+
+### **Research Question 1:** On average how long does a typical animal spend in the Austin Animal Center?
+
+```{r}
+# univariate distribution visualization 1 + summary stats (use median and IQR to report)
+aac_joined |> 
+    ggplot() +
+        geom_histogram(aes(x = Days.in.shelter), 
+                       fill = 'blue', color = 'black',
+                       binwidth = 2,
+                       center = 1) +
+        scale_x_continuous(limits = c(0, 100)) +
+        labs(title = 'Distribution of number of days spent in the shelter',
+             x = 'number of days spent in the shelter',
+             caption = 'visualization no. 1')
+
+# summary statistics for `Days.in.shelter`
+summary(aac_joined$Days.in.shelter)
+```
+
+Based on the histogram plot in visualization no. 1, it seems that most animals don't spend a lot of time in the shelter since the histogram is extremely positively skewed. The median number of days an animal spends in the shelter is 6 days and the IQR is 18 days.
+
+### **Research Question 2:** What is the most common animal type at the Austin Animal Shelter?
+
+```{r}
+# univariate distribution visualization 2 + summary stats (use count and proportion to report)
+aac_joined |>
+    ggplot() +
+        geom_bar(aes(x = Animal.Type.intake, fill = Animal.Type.intake)) +
+        labs(title = 'Distribution of Animal types arriving at shelter',
+             x = 'Animal type',
+             fill = 'Animal type',
+             caption = 'visualization no. 2')
+
+# summary statistics for `Animal.Type.intake`
+aac_joined |>
+    group_by(Animal.Type.intake) |>
+    summarize(count = n()) |>
+    mutate(proportion = count / sum(count))
+```
+
+Based on the bar graph in visualization no. 2, its seems that in this dataset a majority of animals arriving at the shelter are dogs and the minority are cats. Dogs make up about 53.3% of the animal intakes at the animal shelter and cats make up about 46.7% of the animal intakes at the animal shelter in this dataset.
+
+```{r}
+# univariate distribution 3 + summary stats (use count and proportion to report)
+aac_joined |>
+    ggplot() + 
+        geom_bar(aes(x = Intake.Type, fill = Intake.Type)) +
+        labs(title = 'Distribution of Animal intake type',
+             x = 'Intake Type',
+             fill = 'Intake Type',
+             caption = 'visualization no. 3') +
+        theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+aac_joined |>
+    group_by(Intake.Type) |>
+    summarize(count = n()) |>
+    mutate(proportion = count / sum(count))
+
+```
+
+Based on the bar graph in visualization no. 3, stray animals has the most significant number of intakes with 91956 strays (72.02%), owner surrender has the second most number of intakes with a count of 21633 animals (16.94%), public assist intake type has a count of 6700 animals (5.25%), wildlife intake type has a count of 5973 animals (4.68%), abandoned intake type has a count of 1176 animals (0.921%) and finally an animal taken in for Euthanasia Request has the least number with a count of 238 animals (0.1864%).
+
+### **Research Question 3:** Is there a relationship between the age of an animal and the number of days an animal spends in the Austin Animal Center?
+
+```{r}
+# bivariate visualization 1 + summary stats (use median and IQR to report both variables)
+aac_joined |>
+    ggplot() + 
+        geom_point(aes(x = year.age.intake, y = Days.in.shelter, 
+                       color = as.factor(Animal.outcome)),
+                   alpha = 0.40,
+                   na.rm = T) +
+        labs(title = 'Scatterplot of Age and Days in the shelter',
+             x = 'Age (in years)',
+             y = 'Days spent in the shelter',
+             color = 'Animal outcome',
+             caption = 'visualization no. 4 (0 - not adopted, 1 - adopted)')
+
+# summary statistics
+summary(aac_joined$year.age.intake)
+summary(aac_joined$Days.in.shelter)
+        
+```
+
+Based on the scatterplot of visualization no. 4, it seems that most animals in the lower range of age spend the least amount of time in the shelter and that number of days an animal spends at the shelter decreases as the intake age of an animal increases, however it can also be said that how much time an animal spends in the shelter, the animal's age, and whether or not it was adopted or not varies greatly as seen by the plot and it seems random whether or not an animal is adopted or not based on days it has been in the shelter and its age. The median age upon intake was 0.75 years old and the IQR is 1.92. The median number of days an animal spent in the shelter is 6 days and the IQR is 18 days
+
+## 4) Classification and Prediction
+
+Outcome variables: Days.in.shelter (numerical) and Animal.outcome (categorical)
+
+2 models for numerical (lin. regression and decision tree) 1 model for categorical (logistic regression)
+
+```{r}
+# Setting the number of folds, seed for reproducibility and partitioning
+# the dataset for cross validation below
+set.seed(322)
+k = 5
+data <- aac_joined[sample(nrow(aac_joined)), ] 
+folds <- cut(seq(1:nrow(data)), breaks = k, labels = FALSE)
+```
+
+```{r}
+# Predicting Days.in.shelter (numerical)
+
+# LINEAR REGRESSION MODEL
+lin_model_days <- lm(Days.in.shelter ~ year.age.intake + 
+                         Animal.Type.intake + 
+                         Black.color.status,
+                     data = aac_joined)
+
+# Performance metrics for linear regression model
+cat('Performance metrics for linear regression model:\n')
+cat('Adj R-squared:', summary(lin_model_days)$adj.r.squared, '\n')
+cat('RSME:', sqrt(mean(resid(lin_model_days)^2)), '\n\n')
+
+# cross validation for linear model
+perf_k <- NULL
+
+for(i in 1:k){
+  train_not_i <- data[folds != i, ]
+  test_i <- data[folds == i, ]
+  
+  train_model <- lm(Days.in.shelter ~ year.age.intake + 
+                        Animal.Type.intake + 
+                        Black.color.status, 
+                    data = train_not_i)
+  
+  perf_k[i] <- sqrt(mean((
+    test_i$Days.in.shelter - predict(train_model, newdata = test_i))^2, 
+    na.rm = TRUE))
+}
+
+cat('Cross validation metrics for linear model:\n')
+cat(perf_k, '\n')
+cat('Mean performance for RSME:', mean(perf_k), '\n')
+cat('Standard deviation of performance:', sd(perf_k), '\n\n')
+
+# DECISION TREE MODEL
+decision_tree_days <- rpart(Days.in.shelter ~ year.age.intake + 
+                                Animal.Type.intake + 
+                                Black.color.status,
+                            data = aac_joined)
+
+cat('Performance metrics for decision tree model:\n')
+cat('RSME:', sqrt(mean((aac_joined$Days.in.shelter - 
+                            predict(decision_tree_days, aac_joined))^2)), '\n\n')
+
+# cross validation on decision tree model
+perf_k <- NULL
+
+for(i in 1:k){
+  train_not_i <- data[folds != i, ]
+  test_i <- data[folds == i, ]
+  
+  train_model <- rpart(Days.in.shelter ~ year.age.intake + 
+                           Animal.Type.intake + 
+                           Black.color.status, 
+                       data = train_not_i)
+  
+  # Performance listed for each test data = fold i
+  perf_k[i] <- sqrt(mean((
+    test_i$Days.in.shelter - predict(train_model, newdata = test_i))^2, 
+    na.rm = TRUE))
+}
+
+cat('Cross validation metrics for decision tree model:\n')
+cat(perf_k, '\n')
+cat('Mean performance for RSME:', mean(perf_k), '\n')
+cat('Standard deviation of performance:', sd(perf_k), '\n')
+```
+
+```{r}
+# Predicting Animal.outcome (categorical)
+
+# LOGISTIC REGRESSION MODEL
+log_model_outcome <- glm(Animal.outcome ~ year.age.intake + 
+                             Animal.type + 
+                             Black.color.status,
+                           data = aac_joined,
+                           family = "binomial")
+
+cat('Performance metric for logistic regression model\n')
+ROC <- aac_joined |>
+  mutate(probability = predict(log_model_outcome, type = "response")) |>
+  ggplot() +
+    geom_roc(aes(d = Animal.outcome, m = probability), n.cuts = 10)
+cat('AUC: ', calc_auc(ROC)$AUC, '\n\n')
+
+# cross validation for logistic model
+perf_k <- NULL
+
+for(i in 1:k){
+  train_not_i <- data[folds != i, ]
+  test_i <- data[folds == i, ]
+  
+  train_model <- glm(Animal.outcome ~ year.age.intake + 
+                         Animal.type + 
+                         Black.color.status,
+                     data = train_not_i,
+                     family = "binomial")
+  
+  perf_k[i] <- calc_auc(
+                    ggplot(test_i) +
+                        geom_roc(aes(
+                            d = Animal.outcome,
+                            m = predict(train_model, type = "response", newdata = test_i)))
+                    )$AUC
+}
+
+cat('Cross validation metrics for logistic model:\n')
+cat(perf_k, '\n')
+cat('Mean performance for AUC:', mean(perf_k), '\n')
+cat('Standard deviation of performance:', sd(perf_k), '\n\n')
+
+```
+
+In this part of the project, we fitted and tested 3 different models for 2 different outcome variables. Our linear regression and decision tree models were created and fitted to predict the number of days an animal spends in the shelter (Days.in.shelter - numerical outcome variable) and the logistic model was created and fitted to predict whether or not an animal was adopted/returned to owner/rto-adopted or not. All these models were fitted using predictor variables age, animal type, and black color status.
+
+After fitting and cross validating the linear regression model, we found that this model performs extremely poor with an adjusted R-squared of 0.0034, an RSME of 45.42, average performance RSME of 45.38, and standard deviation of performance of 1.99. With these performance metrics, we might conclude that this model is not good model for predicting the number of days an animal might spend in the shelter and is underfitting since the performance is consistently poor.
+
+The same could be said about our decision tree model. We found that this model performs comparably poor to the linear regression model, with an RSME of 45.49, average performance RSME of 45.46, and standard deviation of performance of 1.98. Looking at the performance metrics for this model, we can conclude that this model is also underfitted since the performance is consistently poor and is highly likely that this model is not an appropriate model to predict the number of days an animal may spend in the shelter.
+
+Comparing the linear regression model and decision tree model, we can see that each of their respective performances are poor and are actually very similar as the difference between the RSME of both models is only about 0.07. The standard deviation of model performance between the 2 models during cross validation are also very similar, only differing by about 0.01. Overall both the performance were extremely poor which might indicate that the predictor variables may not be best variables to use in predicting Days.in.shelter or that their might not be a trend in the data.
+
+The last model we fitted was a logistic regression model for predicting the animal outcome. We found that this model performs mediocre with an AUC of about 0.606, average performance AUC of 0.605, and standard deviation of performance of 0.0032. After reviewing these performance metrics we can say that this model does an okay job at predicting whether or not an animal was adopted/returned to owner/rto-adopted or not and that the model was underfitting since the performance was consistently mediocre/poor.
+
+To conclude, it does not seem that any of our models were overfitting since the standard deviation during model cross-validation was relatively low, but rather our models were underfitting. We also believe that our model will not perform well in predicting new observations.
+
+## 5) Discussion
+
+Based on our findings, we found that the number of animals at the shelter decreases as the number of days an animal spends at the shelter increases. A smaller proportion of animals remain in the shelter greater than the median of 6 days. This is important to know because many people do not realize the significant turnover and transfer rate of animals in the foster and shelter system. This constant change of environment can be extremely stressful for an animal, leading to behavioral issues, which results in a lesser chance of adoption. This finding did not match our expectations as we thought most animals spent a much longer time in the shelter. Our original hypothesis was approximately one month. Most animals in the shelter consist of dogs (53.26%) and cats (46.74%) that are strays (76.2%). This matches our expectations as these are the most common pet types and shelters are typically made up of stray animals found in traumatizing or difficult environments. Finally, we found that the number of days an animal spends in a shelter decreases as the age of an animal increases. The median age of an animal taken into the shelter is 0.75 years old. This did not match our expectations as we felt an older animal would have a lesser chance of being adopted, and thus stay in the shelter longer. Thinking critically about this result, it makes sense that an older animal may have more health or behavioral issues that would result in a shorter lifespan at a shelter. People may also have sympathy for older animals in shelters and be more likely to adopt them.
+
+The Austin Animal Center is a place where animals can be brought in through adoption, foster care, or rescue partner groups. They accept animals regardless of age, health, species, or breed. Our findings demonstrate the importance of being aware of the significant rates of dogs and cats present in shelters. Knowing this, we could suggest that the City of Austin can do a better job of advertising available animals and discouraging the purchase of pets from backyard breeders.
+
+## 6) Reflection, Acknowledgements, and references
+
+Some parts that were challenging about this project were the tidying process of the data since we were merging dataset this time and thinking about the best way to visualize the data since most of the variables were not numerical. We had to determine the best variables to use for our data and disregard the columns that weren't relevant to our research questions due to the volume of observations included in this dataset.
+
+Austine worked with cleaning the original dataset, visualizing the data as well, and model fitting. Graceanne and Seojin worked on analyzing the data and visualizations, model fitting, and creating the presentation. We would like to thank the City of Austin for providing the Austin Animal Center Intake & Outtakes dataset for us to explore, and our professor Layla Guyot for giving us an opportunity to do this data analysis project.

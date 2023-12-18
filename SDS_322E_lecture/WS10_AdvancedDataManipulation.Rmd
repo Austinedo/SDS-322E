@@ -1,0 +1,282 @@
+---
+title: "Worksheet 10: Advanced Data Manipulation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, you will practice more advanced examples of using `dplyr` functions to manipulate our data.
+
+## 1. Set up and introduction to the dataset
+
+Let's load `tidyverse` which contains the `dplyr` package:
+
+```{r}
+# Load a package
+library(tidyverse)
+```
+
+We will continue using the dataset `txhousing` for this worksheet:
+
+```{r}
+# Take a look at the first few rows of the dataset
+head(txhousing) 
+```
+
+## 2. More examples of creating new variables
+
+We can create new variables based on some conditions on the values of some variables. For example, recall `ifelse()`:
+
+```{r}
+# Create a new variable under a condition with ifelse()
+txhousing |>
+  mutate(semester = ifelse(month <= 6, # condition
+    "first semester", # value if TRUE
+    "second semester")) # value if FALSE
+```
+
+When we need to differentiate between more cases, we can use `case_when(condition1 ~ new value, condition2 ~ new value, ...)`:
+
+```{r}
+# Create a new variable under different conditions with case_when()
+txhousing |>
+  mutate(trimester = case_when(
+    month <= 4 ~ "first trimester",
+    4 < month & month <= 8 ~ "second trimester",
+    month >= 9 ~ "third trimester"))
+```
+
+#### **Try it! Create a new variable called `season` that keeps track of the season in our `txhousing` dataset (in some cases a month could be considered in two different seasons, but only assign this month in which the season starts: e.g., Spring starts in March so March should be in the `spring` category). In which season of which year, was there the highest total number of sales?**
+
+```{r}
+# Write and submit code here!
+txhousing |>
+    mutate(season = case_when(3 <= month & month <= 5 ~ 'Spring',
+                              6 <= month & month <= 8 ~ 'Summer',
+                              9 <= month & month <= 11 ~ 'Fall',
+                              month %in% c(12,1,2) ~ 'Winter')) |>
+    slice_max(n = 1, sales)
+
+```
+
+**2015 during the summer in Houston has the highest total number of sales**
+
+
+We can change the way some values were coded with `recode(old_var, new values in order from least to greatest)`:
+
+```{r}
+# Recode a numeric variable into a categorical variable
+txhousing |>
+  mutate(month_es = recode(month,
+                           "enero", "febrero","marzo", 
+                           "abril","mayo", "junio",
+                           "julio","agosto","septiembre",
+                           "octubre","noviembre","diciembre"))
+```
+
+Another useful function for analyzing time series in particular is the function `lag()` which refers to a previous value:
+
+```{r}
+txhousing |> 
+  # Why does it only make sense if we focus on one city at a time?
+  filter(city == "Austin") |> 
+  # Make sure values are in ascending order per year and month
+  arrange(year, month) |>
+  # Subtract the previous month's sales with lag(sales))
+  mutate(change = sales - lag(sales)) 
+```
+
+Let's visualize this difference with a ggplot:
+
+```{r}
+txhousing |>
+  filter(city == "Austin") |>
+  arrange(year, month) |>
+  mutate(change_sales = sales - lag(sales)) |> 
+  # Let's add a ggplot!
+  # Use the variable date on the x-axis (combination of month/year)
+  ggplot(aes(x = date, y = change_sales, color = month)) + 
+  geom_line() + 
+  # Color the lines depending on the month with summer months in red
+  scale_color_gradient2(low = "blue", mid = "red", midpoint = 6.5)
+  scale_color_grad
+```
+
+## 3. Suffixes
+
+We can add suffixes to some core functions such as `summarize` or `mutate`:
+
+-   `_all()`: applies to every variable\
+-   `if()`: applies to variables when a conditional statement is TRUE.\
+-   `_at()`: applies to some selected variables (using `c("var1", "var2")` or `vars(var1:var3)` for example)\
+
+### a. Summarize
+
+Let's `summarize` with these suffixes! Summarizing all variables with `summarize_all(function, extra argument for that function if needed)`:
+
+```{r}
+# Compute the mean for all variables
+txhousing |> 
+  summarize_all(mean, na.rm = T)
+```
+
+However, it doesn't make sense to calculate means for categorical variables and find distinct values for numeric variables. Let's use `summarize_if(condition, function, extra argument for that function if needed)` instead!
+
+```{r}
+# Summarize variables that meet certain criteria
+txhousing |>
+  summarize_if(is.numeric, mean, na.rm = T) # Only compute the mean for numeric variables
+```
+
+Or we could be interested in just some particular variables:
+
+```{r}
+# Only summarize for a few variables: all of the following are equivalent!
+txhousing |>
+  summarize_at(c("sales","volume","median"), mean, na.rm = T) # using c()
+
+txhousing |> 
+  summarize_at(vars(sales:median), mean, na.rm = T) # using vars()
+
+txhousing |> 
+  summarize_at(4:6, mean, na.rm = T) # using indexing
+```
+
+### b. Mutate
+
+Let's `mutate` with suffixes!
+
+```{r}
+# Coerce all variables into character
+txhousing |>
+  mutate_all(as.character)
+```
+
+```{r}
+# Make all character variables as factors
+txhousing |> 
+  mutate_if(is.character, as.factor)
+```
+
+```{r}
+# Make some numeric variables as factors
+txhousing |> 
+  mutate_at(c("year","month"), as.factor)
+```
+
+#### **Try it! Using functions with suffixes, find the number of missing values for each variable.**
+
+```{r}
+# Write and submit code here!
+txhousing |>
+    mutate_all(is.na) |>
+    summarize_all(sum)
+
+txhousing |>
+    summary()
+```
+
+------------------------------------------------------------------------
+
+## **Your turn!**
+
+Let's practice our skills to join some Austin weather data in 2014 to the `txhousing` dataset!
+
+1.  We will first upload a dataset containing information about the weather in Austin, TX in 2014. How many observations and variables are there in the dataset? How do you identify a unique observation in this data (i.e., what are the key variables)? *Note: data was retrieved from <https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database>*
+
+```{r}
+# Upload the weather dataset from my github to your environment
+atxweather_2014 <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//ATX_weather_2014.csv")
+
+# Take a look!
+head(atxweather_2014)
+head(txhousing)
+
+```
+
+**There are 365 observations in the data set with 8 variables. A unique observation is a row with values for all 8 of the variables in the dataset with no duplicates; a unique observation in this case is a particular day so the variables 'date', 'year', 'month', and 'day' show us a unique observation in the dataset**
+
+2.  What would we need to do to join the `weather` data with the `txhousing` data? Change the `weather` and `txhousing` datasets accordingly and save them in your environment with new names.
+
+**Join by 'year', 'month', 'day'. We will need to transform the txhousing dataset according since it only has 'year' and 'month' variables**
+
+```{r}
+# Write and submit code here!
+tidy_txhousing <- txhousing |>
+                    filter(year == 2014 & city == 'Austin')
+
+tidy_atxweather_2014 <- atxweather_2014 |>
+                            group_by(year, month) |>
+                            summarize_at(c('temperature','pressure', 'precipitation'), mean, na.rm = T)
+            
+```
+
+3.  Join the information from both datasets so that the joined information makes sense. Using the resulting dataset, create a plot to investigate the impact of the weather on the housing market (i.e., pick one `atxweather_2014` variable and one `txhousing` variable). Add colors and labels to your plot!
+
+```{r}
+# Write and submit code here!
+
+atx_housing_and_weather <- full_join(tidy_txhousing, tidy_atxweather_2014, by = c('year', 'month'))
+
+ggplot(data = atx_housing_and_weather) +
+    geom_point(aes(x = temperature, y = sales), color = 'purple') +
+    labs(title = 'Sales as a function of temperature',
+         x = 'temperature (in Farenheit)',
+         y = 'number of sales')
+
+```
+
+4.  Post your plot on the following slideshow with your code in the speakers note on bottom: <https://docs.google.com/presentation/d/1XrP0QrpX9V5T3rnytk7_MWe29i_GB5almOuKOfcFTT4/edit?usp=sharing>
+
+------------------------------------------------------------------------
+
+## 4. When to `dplyr` or not `dplyr`
+
+Let's compare a graph after using `dplyr`:
+
+```{r}
+txhousing |>
+  group_by(year,month) |> # create subsets by year, month
+  summarize(mean_vol = mean(volume, na.rm=T), # mean volume
+            sd_vol = sd(volume, na.rm=T),     # standard deviation  
+            n = n(),                          # number of months in a year
+            se_vol = sd_vol/sqrt(n)) |>     # standard error
+  ggplot(aes(x = month, y = mean_vol, fill = month)) + 
+  geom_bar(stat = "identity") +               # represent the mean volume
+  geom_errorbar(aes(y = mean_vol,             # include error bars
+                    ymin = mean_vol - se_vol, # define min and max of error bars
+                    ymax = mean_vol + se_vol)) +
+  facet_wrap(~ year) + 
+  scale_x_continuous(breaks = seq(1,12,2)) +  # tick mark for every 2 months
+  scale_fill_gradient2(low = "blue", mid = "red", midpoint = 6.5)
+```
+
+Versus just a `ggplot`:
+
+```{r}
+ggplot(txhousing, aes(x = month, y = volume, fill = month)) + 
+  geom_bar(stat = "summary", fun = mean) +                # represent the mean volume
+  geom_errorbar(stat = "summary", fun.data = "mean_se") + # represent error bars with SE
+  facet_wrap(~ year) + 
+  scale_x_continuous(breaks = seq(1,12,2)) +
+  scale_fill_gradient2(low = "blue", mid = "red", midpoint = 6.5)
+```
+
+Same graph but less code with `ggplot`!
+
+

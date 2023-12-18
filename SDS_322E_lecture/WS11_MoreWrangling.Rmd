@@ -1,0 +1,268 @@
+---
+title: "Worksheet 11: More Wrangling"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, you will practice more examples of using `dplyr` functions to manipulate our data.
+
+## 1. Set up and introduction to the dataset
+
+Let's load `tidyverse` which contains the `dplyr` package and the package `nycflights13` to access the database about flights from New York City:
+
+```{r, message=FALSE}
+# Load packages 
+library(tidyverse)
+install.packages("nycflights13")
+library(nycflights13)
+```
+
+We will focus on 5 datasets in that database:
+
+```{r}
+# Take a quick look
+head(flights)
+head(airports)
+head(airlines)
+head(planes)
+head(weather)
+```
+
+How do all of these datasets connect with one another?
+
+**The flights dataset gives us the general information on the flight that took place and the other dataset provides more detailed information on values in the columns of the flights dataset**
+
+## 2. Missing data
+
+In R, the philosophy is that missing values should never silently go missing. That's why if there is any missing value in the input, the output will be a missing value.
+
+For example, we have come across that issue many times by now, what happens if we calculate the mean of a variable with some missing values?
+
+```{r}
+# Calculate the mean of departure time
+mean(flights$dep_time)
+```
+
+#### **Try it! What happens when there are missing values for a visualization? Represent `dep_time` from `flight` with a histogram and `tzone` from `airports` with a bar graph to see how R treats missing values in visualizations.**
+
+```{r}
+# Write and submit code here!
+ggplot(data = flights) +
+    geom_histogram(aes(x = dep_time), fill = 'blue', color = 'black', binwidth = 100, center = 50)
+
+ggplot(data = airports) +
+    geom_bar(aes(x = tzone, fill = tzone)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**For histograms it removes/ignores the NA values in order to visualize the data and for bar plot it displays the counts of NA in the data. So ultimately it depends on the visualization you are utilizing and how it handles missing/NA values**
+
+
+It would be convenient to know which variables have missing values and find the proportion of missing values. For example, in `flights`:
+
+```{r}
+flights |>
+  # Transform all variables as logical vectors identifying missing values
+  mutate_all(is.na) |>
+  summarize_all(mean)
+```
+
+The variable of `dep_time` has about 2.45% of missing values. We could decide to remove missing data for this variable for example. But first, let's investigate if there seems to be a reason why some flights had a missing departure time:
+
+```{r}
+# Take a look at the missing values for departure time
+flights |> 
+  filter(is.na(dep_time))
+```
+
+What if we would like to remove the rows with missing values?
+
+```{r}
+# Remove missing values just for the variable of dep_time
+flights |>
+    filter(!is.na(dep_time))
+
+flights |>
+    filter(!is.na(dep_time)) |>
+    mutate_all(is.na) |>
+    summarize_all(mean)
+
+# as you can see there still missing values just not in the column 'dep_time'
+```
+
+We could also choose to remove all rows containing any missing values (for any variable):
+
+```{r}
+# Using na.omit()
+flights |> 
+    na.omit()
+
+
+
+# Using drop_na()
+flights |> 
+  drop_na()
+```
+
+But be careful about removing all `NA` values as sometimes these have a meaning!
+
+## 3. Outliers
+
+Let's discuss two examples of outliers.
+
+First example appears in the `weather` dataset for `wind_speed` (which is expressed in mph). We best spot outliers with a visualization:
+
+```{r}
+# Using a boxplot
+ggplot(weather, aes(y = wind_speed)) +
+  geom_boxplot() + 
+  scale_x_discrete()
+```
+
+What do you think about that extreme value of wind speed? How does it affect the calculation of the mean wind speed for example?
+
+#### **Try it! Find the mean value of `wind_speed`. Remove the extreme value of wind speed, find the updated mean and visualize the updated distribution with a boxplot. What do you notice in that plot?**
+
+```{r}
+# Write and submit code here!
+mean(weather$wind_speed, na.rm = T)
+
+weather |>
+    filter(wind_speed < 100) |>
+    summarize(mean_wind_speed = mean(wind_speed, na.rm = T))
+
+weather |>
+    filter(wind_speed < 100) |>
+    ggplot() + 
+        geom_boxplot(aes(y = wind_speed))
+```
+
+**The range of the wind values is only from 0 to less than 50 mph**
+
+
+Another example of outliers appears in the `planes` dataset for `seats` (number of seats in a plane). As mentioned above, best way to spot outliers is with a visualization:
+
+```{r}
+# Spot outliers in a boxplot
+ggplot(planes, aes(y = seats)) +
+  geom_boxplot(alpha = 0.5) + 
+  scale_x_discrete()
+```
+
+What do you think about the extreme values of seats? Is it reasonable to drop them? Why/Why not?
+
+**No because there a few planes that have been manufactured that have the capacity to carry upwards of 400-500 passengers.  **
+
+*Note: to detect missing data or outliers, we use descriptive statistics and visualizations. This is a crucial step for understanding our data and its structure.*
+
+------------------------------------------------------------------------
+
+## **Your turn!**
+
+You will practice some data wrangling with the NYC flights with minimum guidance!
+
+1.  Show the carriers (display the names) from the shortest to longest mean departure delay. What other descriptive statistic is usually reported with the mean? Which company had the least delay on average? Which company had the most consistent delay?
+
+```{r}
+# Write and submit code here!
+
+flights |>
+    group_by(carrier) |>
+    summarize(mean_departure_delay = mean(dep_delay, na.rm = T)) |>
+    arrange(mean_departure_delay)
+```
+
+**The statistic that is usually reported with mean is standard deviation**
+**The company with the least delay on average is 9E and the company with the most delay on average was F9**
+
+2.  Look up the flight that had the minimum value for departure delay. What is the arrival delay for this flight? It might look suspicious! To check if that could be an error, display the length of the flight (called `air_time`) with a boxplot for that specific route (specify airport of origin and destination). Do you think that there was an error recording that arrival delay?
+
+```{r}
+# Write and submit code here!
+flights |>
+    slice_min(n = 1, dep_delay)
+
+flights |>
+    filter(origin == 'JFK', dest == 'DEN') |>
+    slice_min(n = 7, dep_delay)
+
+flights |>
+    filter(origin == 'JFK', dest == 'DEN') |>
+    ggplot() +
+        geom_boxplot(aes(x = air_time)) +
+        labs(title = 'Boxplot of flight time from JFK to DEN',
+             x = 'flight time (min)')
+        
+```
+
+**No it does not seem like the arrival delay recorded incorrectly because it is still possible to leave early (as denoted by a negative dep_delay value) and still arrive late (as denoted by a positive arr_delay value) and we can see that there are some flights with longer air_time shown in the boxplot**
+
+
+3.  Recall the meaning of missing departure time. Which airport (display the full name) had the biggest number of cancelled flights in 2013?
+
+```{r}
+# Write and submit code here!
+flights |>
+    left_join(airports, by = c('origin' = 'faa')) |>
+    group_by(name) |>
+    filter(is.na(dep_time)) |>
+    summarize(num_of_delays = sum(is.na(dep_time)))
+    
+    
+```
+
+**The airport with the most cancelled flight in 2013 was Newark Liberty Intl**
+
+
+4.  Instead of how frequently flights are cancelled at each airport, we should report the percentage of flights that are cancelled at each airport because each airport may not have a comparable number of flights. How would we go about calculating such a percentage?
+
+```{r}
+# Write and submit code here!
+num_of_delay_by_airport <- flights |>
+                                group_by(origin) |>
+                                filter(is.na(dep_time)) |>
+                                summarize(num_of_delays = sum(is.na(dep_time)))
+
+total_num_flights_by_airport <- flights |>
+                                    group_by(origin) |>
+                                    summarize(num_of_flights = sum(n()))
+
+percent_cancelled <- full_join(num_of_delay_by_airport, total_num_flights_by_airport, by = 'origin') |>
+                        mutate(flights_cancelled_percentage = (num_of_delays / num_of_flights) * 100)
+
+percent_cancelled
+    
+```
+
+**The airport with the highest percentage of cancelled flights is La Guardia Airport **
+
+
+5.  Pick one of these datasets: airports, airlines, planes, weather. Explore missing values in these datasets: do the missing values, if any, have a meaning? Is there a reason why they should be missing? Also investigate some of the variables to see if there are some outliers. Report your findings in this slideshow: <https://docs.google.com/presentation/d/1BgOr53HECamMT5Jip7b2Sfzjw1hA-PmuQ5a8GeCtqPo/edit?usp=sharing>
+
+```{r}
+# Write and submit code here!
+weather |>
+    mutate_all(is.na) |>
+    summarize_all(sum)
+
+ggplot(data = weather) +
+    geom_boxplot(aes(x = wind_speed))
+```
+
+**From the `weather` dataset, we can see that some measurements are missing from the observation with that date, the missing data doesn't particularly mean anything and it just may be missing because the instrument measuring that variable had a error and didn't record or there was a malfunction and no data was recorded.**

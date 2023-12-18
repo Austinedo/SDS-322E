@@ -1,0 +1,304 @@
+---
+title: "Worksheet 19: Other Models"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will introduce some more models to predict an outcome that can be either numeric or categorical.
+
+## 1. Set up
+
+We will use many packages today! First, install `caret`, `rpart` and `rpart.plot`:
+
+```{r, eval=FALSE}
+# Install new packages (only needed once!)
+install.packages("caret")
+install.packages("rpart")
+install.packages("rpart.plot")
+```
+
+Then load the packages:
+
+```{r, message=FALSE}
+# Load packages
+library(tidyverse)
+library(plotROC)
+library(caret)
+library(rpart)
+library(rpart.plot)
+```
+
+Recall the `titanic_dataset`, which contains information about passengers of the Titanic.
+
+```{r}
+# Upload the data from GitHub
+titanic_dataset <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//titanic_dataset.csv")
+
+# Take a quick look
+head(titanic_dataset)
+```
+
+We will look at two outcomes from this dataset: predicting the `Fare` paid or predicting if a passenger `Survived`.
+
+## 2. k-Nearest Neighbors
+
+Let's first consider the algorithm of the k-Nearest Neighbor (kNN). This model determines the prediction of an outcome by looking at the nearest neighbors.
+
+### a. Predicting a numeric outcome
+
+For a numeric outcome, the prediction is done according to the average outcome among the nearest neighbors. We can use the function `knnreg(outcome ~ predictor, data = ..., k = 5)` from the `caret` package to fit this model:
+
+```{r}
+# Consider the kNN model with k = 5
+fit_knnreg <- knnreg(Fare ~ Pclass,
+                     data = titanic_dataset,
+                     k = 5) # Number of Neighbors
+```
+
+Then we use the model to find the average fare for a passenger based on their class with the `predict(model, data)` function:
+
+```{r}
+# Find the average fare among the nearest neighbors
+predict(fit_knnreg, titanic_dataset) |> 
+    as.data.frame() |> 
+    head()
+```
+
+#### **Try it! How many distinct values are they for the average fare? Why does it make sense?**
+
+```{r}
+# Write and submit code here!
+predict(fit_knnreg, titanic_dataset) |>
+    as.data.frame() |>
+    n_distinct()
+```
+
+**There are 3 distinct values for the average fare. This makes sense because out model uses `Pclass` as the predictor variable and `Pclass` only has 3 possible values**
+
+Let's evaluate the performance of this model:
+
+```{r}
+# Evaluate performance with RMSE
+sqrt(mean((titanic_dataset$Fare - predict(fit_knnreg, titanic_dataset))^2))
+```
+
+#### **Try it! Can you find another predictor that is more accurate for predicting the `Fare`?**
+
+```{r}
+# Write and submit code here!
+fit_knnreg <- knnreg(Fare ~ Pclass + Sex + SibSp + Parch, 
+                     data = titanic_dataset, 
+                     k = 5)
+sqrt(mean((titanic_dataset$Fare - predict(fit_knnreg, titanic_dataset))^2))
+```
+
+**Using `Pclass`, `Sex`, `SibSp`, and `Parch` produces the most accurate model for predicting `Fare`. Otherwise, `Pclass` is the best predictor for a model using only 1 predictor variable.**
+
+### b. Predicting a categorical outcome
+
+For a categorical outcome, the prediction is done according to the majority outcome among the nearest neighbors. We can use the function `knn3(outcome ~ predictor, data = ..., k = 5)` from the `caret` package to fit this model:
+
+```{r}
+# Consider the kNN classifier with k = 5
+fit_knn <- knn3(Survived ~ Pclass,
+                  data = titanic_dataset,
+                  k = 5) # Number of Neighbors
+```
+
+Then we use the model to find the probability of a passenger to have survived based on their class with the `predict(model, data)` function:
+
+```{r}
+# Find the proportion of nearest neighbors that have survived
+predict(fit_knn, titanic_dataset) |>
+    as.data.frame() |> 
+    head()
+```
+
+The output shows two columns. Indeed, the `predict()` function provides the proportions of each "outcome" in the 5 nearest neighbors: 0 or 1. Note that the sum of the values on each row is 1. If we add more categories, we would have more columns, with each row still adding up to 1. In our context, we are particularly interested in the second column which indicates the probability of surviving: the predictions can be calculated with `predict(model, data)[ ,2]`. Then let's evaluate the performance of this kNN model:
+
+```{r, warning=FALSE}
+# Evaluate performance with AUC
+calc_auc(
+  # Make a ROC curve
+  ggplot(titanic_dataset) + 
+    geom_roc(aes(
+      # Outcome is Survived
+      d = Survived,
+      # Probability of surviving based on the kNN model
+      m = predict(fit_knn, titanic_dataset)[ ,2]))
+  )$AUC
+```
+
+This model is not great...
+
+#### **Try it! Can you find another predictor that is more accurate for predicting the `Fare`?**
+
+```{r}
+# Write and submit code here!
+fit_knn <- knn3(Survived ~ Sex + Pclass,
+                data = titanic_dataset,
+                k = 5)
+
+# Evaluate performance with AUC
+calc_auc(
+  # Make a ROC curve
+  ggplot(titanic_dataset) + 
+    geom_roc(aes(
+      # Outcome is Survived
+      d = Survived,
+      # Probability of surviving based on the kNN model
+      m = predict(fit_knn, titanic_dataset)[ ,2]))
+  )$AUC
+```
+
+**Using `Sex` as the sole predictor variable produces a better model for predicting the `Survival` outcome. If you create a model using both `Sex` + `Pclass` the model become significantly better than just using 1 predictor variable.**
+
+## 3. Decision trees
+
+Let's consider the algorithm of the decision tree. This model comes up with some rules to split our data into subsets.
+
+### a. Predicting a numeric outcome
+
+For a numeric outcome, the prediction is done according to the average outcome among the subset. We can use the function `rpart(outcome ~ predictor, data = ...)` from the \`rpart\`\` package to fit this model:
+
+```{r}
+# Consider the decision tree model
+fit_tree_reg <- rpart(Fare ~ Pclass,
+                    data = titanic_dataset)
+```
+
+We can visualize our tree with its corresponding rules with the function `rpart.plot`:
+
+```{r}
+# Visualize the decision tree
+rpart.plot(fit_tree_reg)
+```
+
+#### **Try it! To make sense of the decision tree above, 1) calculate the mean `Fare` across all classes, 2) calculate the mean `Fare` in each class, 3) find the percentage of passengers in each class.**
+
+```{r}
+# Write and submit code here!
+
+# 1) Mean fare for all classes
+titanic_dataset |>
+    summarize(mean_fare_all = mean(Fare))
+
+# 2) Mean fare by class
+titanic_dataset |>
+    group_by(Pclass) |>
+    summarize(mean_fare = mean(Fare))
+
+# 3) Percentage of passengers in each class
+
+nrow(filter(titanic_dataset, Pclass == 1)) / nrow(titanic_dataset)
+nrow(filter(titanic_dataset, Pclass == 2)) / nrow(titanic_dataset)
+nrow(filter(titanic_dataset, Pclass == 3)) / nrow(titanic_dataset)
+```
+
+**The percentages are how the passengers in the dataset are split under the condition 'Pclass \>= 2' and the numbers are the average fares paid by each group that was split under the condition. So the average fare for the group Pclass == 1 was \~84 and the average fare for the group Pclass == 2 or Pclass == 3 was \~16. 24% of the passengers on the titanic were 1st class and 76% of the passengers on the titanic were 2nd class or 3rd class.**
+
+Then we use the model to find the average fare for a passenger based on their class with the `predict(model, data)` function:
+
+```{r}
+# Find the average fare for each subgroup
+predict(fit_tree_reg, titanic_dataset) |> 
+    as.data.frame() |> 
+    head()
+```
+
+Note that we only have two possible predicted values since we only have two subsets (1st class vs 2nd/3rd class).
+
+Let's evaluate the performance of this model:
+
+```{r}
+# Evaluate performance with RMSE
+sqrt(mean((titanic_dataset$Fare - predict(fit_tree_reg, titanic_dataset))^2))
+```
+
+The decision tree model is not performing as well as the equivalent kNN model.
+
+### b. Predicting a categorical outcome
+
+For a categorical outcome, the prediction is done according to the majority outcome among the subsets. We can still use the function `rpart(outcome ~ predictor, data = ...)` by adding `method = "class"`:
+
+```{r}
+# Consider the decision tree model
+fit_tree_class <- rpart(Survived ~ Pclass,
+                    data = titanic_dataset,
+                    method = "class") # classification
+```
+
+We can visualize our tree with its corresponding rules with the function `rpart.plot`:
+
+```{r}
+# Visualize the decision tree
+rpart.plot(fit_tree_class)
+```
+
+#### **Try it! To make sense of the decision tree above, 1) calculate the proportion of passengers who survived across all classes, 2) the proportion of passengers who survived in each class.**
+
+```{r}
+# Write and submit code here!
+titanic_dataset |>
+    summarize(percent_survived = sum(Survived) / n())
+
+titanic_dataset |>
+    group_by(Pclass) |>
+    summarize(percent_survived = sum(Survived) / n())
+```
+
+**The percentage of passengers that survived is \~38%. The percentage of passengers that survived by class in order from 1, 2, and 3 are \~62%, \~47%, and \~24% respectively. The decision tree once again splits the `Pclass` into the 3 values by condition. At the leaves of the decision tree, the percent represents the proportion of that class on the ship, the decimal number represent the probability of someone of that specific class surviving, and the number at the top of the leaf represents the decision tree choice for survivor status.**
+
+**Left node represents passengers of 3rd class, Middle node represents the passengers of 2nd class, and Right node represents the passengers of 1st class**
+
+Then we use the model to find the probability of a passenger to have survived based on their class with the `predict(model, data)` function:
+
+```{r}
+# Find the proportion of nearest neighbors that have survived
+predict(fit_tree_class, titanic_dataset) |> 
+    as.data.frame() |> 
+    head()
+```
+
+The output shows two columns. Indeed, the `predict()` function provides the proportions of each "outcome" in each subset. In our context, we are still interested in the second column which indicates the probability of surviving: the predictions can be calculated with `predict(model, data)[ ,2]`. Then let's evaluate the performance of this model:
+
+```{r, warning=FALSE}
+# Evaluate performance with AUC
+calc_auc(
+  # Make a ROC curve
+  ggplot(titanic_dataset) + 
+    geom_roc(aes(
+      # Outcome is Survived
+      d = Survived,
+      # Probability of surviving based on the decision tree model
+      m = predict(fit_tree_class, titanic_dataset)[ ,2]))
+  )$AUC
+```
+
+This model is still not great...
+
+## 4. Random forest
+
+A random forest is what we call an ensemble algorithm because it aggregates different models (i.e., many decision trees). Each tree will consider a different subset of the data and come up with a decision.
+
+We could use the `randomForest` package but we have learned enough models for this course! Consider taking a Machine Learning course to learn more!
+
+## 5. Comparing classifiers
+
+Depending on our data, some models might perform better than others. There is not a single best algorithm.

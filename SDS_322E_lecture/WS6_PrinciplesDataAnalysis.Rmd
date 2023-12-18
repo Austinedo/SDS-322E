@@ -1,0 +1,185 @@
+---
+title: "Worksheet 6: Principles of Data Analysis"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will demonstrate the different principles of data analysis using what we have learned so far!
+
+Recall the `diamonds` dataset that we used in the last lab.
+
+## 1. Gather some background information
+
+I didn't know much about diamonds before making the lab! Unfortunately, there is no reference for the source of this dataset (bad R!). But here is the type of information we will come across in the dataset (variables):
+
+| Variable Name | Description                                                                                     |
+|:-------------------------------------|:---------------------------------|
+| price         | The price in US dollars                                                                         |
+| carat         | Weight of the diamond                                                                           |
+| cut           | Quality of the cut                                                                              |
+| color         | diamond color from D (best) to J (worst)                                                        |
+| clarity       | measurement of how clear the diamond is (I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best)) |
+| depth         | total depth percentage = z / mean(x, y) = 2 \* z / (x + y)                                      |
+| table         | width of top of diamond relative to widest point                                                |
+| x             | length in mm                                                                                    |
+| y             | width in mm                                                                                     |
+| z             | depth in mm                                                                                     |
+
+Might be a good idea to learn a few things about common characteristics of diamonds: <https://diamond101.com/characteristics-of-a-diamond/>
+
+## 2. Formulate some research questions
+
+Now that we have a little more background about diamonds, what are we curious about?
+
+Try this: why are some diamonds so expensive? This question is a little too vague... Not sure how we would answer this question based on the data available. Do I have enough information to explore every possibilities?
+
+Try this: what is the average price of a diamond? This question is a little too specific. We would be able to answer it by simply looking at the distribution of price and calculate the appropriate measure of center (recall: **mean** for **symmetric** distributions, **median** for **skewed** distributions). If we were going to do it right, we would also report a measure of spread (SD and IQR, depending on the shape of the distribution).
+
+Ok, try this instead: is a diamond more expensive as it gets heavier? We could expect to observe that the `price` of a diamond increases as the weight (called `carat`) increases. Let's investigate!
+
+## 3. Explore the structure of the data
+
+We have a research question to investigate, now it is time to look at the data. Remember to always upload the necessary packages for using functions within the R Markdown file:
+
+```{r, message=FALSE}
+# Load package
+library(tidyverse)
+```
+
+If you are importing a dataset from a file that is stored locally, make sure that this data file is in the same folder as the R Markdown file and use a function to read the data (such as `read_csv()` for csv files). Turns out, the `diamonds` dataset is conveniently built-in R:
+
+```{r}
+# Create a copy to manipulate
+mydiamonds <- diamonds
+```
+
+Take a look at the structure of this dataset:
+
+```{r}
+# Consider the structure of the data
+str(mydiamonds)
+```
+
+There are 53,940 rows and 10 columns. Also, there are 3 categorical variables and 7 numeric variables. Each row in this dataset represents one diamond.
+
+How many different categories are there for the categorical variables? What are some minimum/maximum values for the numeric variables? Consider basic summary statistics:
+
+```{r}
+# Generate basic summary statistics
+summary(diamonds)
+```
+
+To make sense of the categories for the `color` and `clarity` variables, we need to refer back to the context. The categories of the `cut` variable are more intuitive. What about the minimum values of `x`,`y`,`z`, do those make sense?
+
+#### **Try it! Are there any diamonds that have `x`,`y`, and `z` equal to 0? Take a look at these diamonds if they exist. Why do you think that happened?**
+
+```{r}
+# Write and submit code here!
+sum(mydiamonds$x == 0 & mydiamonds$y == 0 & mydiamonds$z == 0)
+weird_diamonds <- mydiamonds[mydiamonds$x == 0 & mydiamonds$y == 0 & mydiamonds$z == 0,]
+```
+
+**Maybe incorrect input into the dataset**
+
+## 4. Investigate trends and relationships
+
+Now that we have explored some basic structure of the dataset, let's focus on the research question to investigate: "Does the price of a diamond increases as its weight increases?"
+
+It is always a good idea to check the distributions of individual variables (univariate distributions) before looking at the relationship between the variables. Especially because we came across some sneaky missing values.
+
+Representing the distribution of `price`...
+
+```{r}
+# Using ggplot
+ggplot(data = mydiamonds) + 
+  # With a histogram
+  geom_histogram(aes(x = price),
+                 # Add fill and color
+                 fill = "purple", color = "black",
+                 # Adjust the bins
+                 binwidth = 1000, center = 500) +
+  # Add labels
+  labs(title = "Distribution of the price of 53,940 diamonds",
+       caption = "Source: ggplot2 dataset",
+       x = "Price (in US dollars)",
+       y = "Number of diamonds")
+```
+
+...and reporting appropriate statistics:
+
+```{r}
+# Appropriate statistics are median and IQR since price is skewed
+median(mydiamonds$price)
+IQR(mydiamonds$price)
+```
+
+The distribution of price is skewed (to the right), meaning that many diamonds are cheaper compared to a few very expensive diamonds. Half of the diamonds are less than \$2,401 and the price typically vary by \$4,374.25.
+
+Note the importance of the labels, including a title, a caption with the source of the dataset, and reporting units of the axis.
+
+#### **Try it! Represent the distribution of the weights for these diamonds. Either use a histogram with appropriate bins or use another `geom_...()`. Report and interpret appropriate statistics. Anything you're curious about?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = mydiamonds) +
+    geom_histogram(aes(x = carat), fill = 'blue', color = 'red', binwidth = 0.20, center = 0.10) + 
+    labs(title = 'Distribution of weights of 53,940 diamonds',
+         x = 'Weight (in carats)',
+         y = 'frequency')
+```
+
+**Write sentences here!**
+
+Once you have investigated univariate distributions, consider investigating relationships between variables with bivariate or multivariate distributions.
+
+#### **Try it! Represent the potential relationship between the weight and the price of a diamond. Report and interpret appropriate statistics. Anything that you think could improve the visualization?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = mydiamonds) + 
+    geom_point(aes(x = carat, y = price), alpha = 0.30, color = 'blue') + 
+    scale_x_continuous(limits = c(0,6), breaks = seq(0,6,0.5)) + 
+    scale_y_continuous(limits = c(0,19000), breaks = seq(0,20000,1000)) +
+    labs(title = 'Weight vs Price in diamonds',
+         x = 'weight (in carats)',
+         y = 'price (in USD)')
+```
+
+**Write sentences here!**
+
+## 5. Answer the questions and be critical
+
+While we observed what we expected, that the price of a diamond increases as its weight increases, there is not a very-well defined relationship. It is a little better if we use a different scale but that means we are representing the relationship between transformed variables and this change in scale makes interpretations a little more complex.
+
+Maybe there is another reason why we observed such a relationship.
+
+#### **Try it! Consider one of the categorical variables. Represent the relationship between the weight and the price of a diamond and this categorical variable. Does this categorical variable seem to help understand how the weight of a diamond might affect its price?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = mydiamonds) + 
+    geom_point(aes(x = carat, y = price, color = clarity), alpha = 0.30) + 
+    scale_x_continuous(limits = c(0,6), breaks = seq(0,6,0.5)) + 
+    scale_y_continuous(limits = c(0,19000), breaks = seq(0,20000,1000)) +
+    labs(title = 'Weight vs Price in diamonds',
+         x = 'weight (in carats)',
+         y = 'price (in USD)')
+```
+
+**Write sentences here!**

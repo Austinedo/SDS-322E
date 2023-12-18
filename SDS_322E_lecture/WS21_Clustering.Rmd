@@ -1,0 +1,280 @@
+---
+title: "Worksheet 21: Clustering"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will introduce an algorithm to look for some potential grouping in our data.
+
+## 1. Set up
+
+We will use a new package today containing the functions related to clustering:
+
+```{r, eval=FALSE}
+# Install new packages (only needed once!)
+install.packages("cluster")
+```
+
+We will also use the `tidyverse`, `ade4` to access a built-in dataset, and `factoextra` to provide information about the algorithm for clustering:
+
+```{r, message=FALSE}
+# Load packages
+library(tidyverse)
+library(ade4)
+library(factoextra)
+library(cluster)
+```
+
+Remember the `atheletes` dataset? It contains information about the performance of 33 athletes in the 10 disciplines of the decathlon at the Olympics in 1988:
+
+```{r}
+# Save the database into your environment, then the dataset
+data("olympic")
+athletes <- olympic$tab
+
+# Quick cleanup
+athletes <- athletes |>
+  # Translate the variable names (from French!)
+  rename(disc = disq, weight = poid, high_jump = haut,
+  # Make the names more explicit
+         long_jump = long, javelin = jave, pole = perc,
+  # Add indication of distance (R does not like digits for variable names)
+         dist_100 = `100`, dist_110 = `110`,
+         dist_400 = `400`, dist_1500 = `1500`)
+head(athletes)
+```
+
+## 2. Distances between observations
+
+We will consider distances to measure how "far" observations are from each other. For example, let's compare the athlete that ranked first (first row) and the one that ranked last (last row) in terms of their performance in running 100 meters:
+
+```{r}
+# Calculate distance by hand
+athletes |>
+  # Only keep the first and last athlete
+  filter(row_number() == 1 | row_number() == 33) |>
+  # Find the Euclidean distance = sqrt of the squared differences
+  summarize(euclidean = sqrt(diff(dist_100)^2))
+```
+
+The two athletes are at a distance of 0.32 from each other. What if we wanted to also consider their performance in throwing a disc?
+
+#### **Try it! Calculate the Euclidean distance between the first and last athlete in terms of their performance in running 100 meters and throwing a disc. Why is the distance much bigger now?**
+
+```{r}
+# Write and submit code here!
+athletes |>
+    filter(row_number() == 1 | row_number() == 33) |>
+    summarize(euclidean = sqrt(diff(dist_100)^2 + diff(disc)^2))
+```
+
+**The reason for this is because now instead of being in 1 dimension (a line), we are calculating euclidean distance across 2 variables or 2 dimensions which yields a distance much larger**
+
+
+The function `dist()` computes the distances between each pair of observations (here between each pair of athletes):
+
+```{r}
+dist(athletes, method = "euclid")
+```
+
+The goal of clustering is to identify observations that are alike.
+
+## 3. Clustering
+
+We will consider the algorithm for k-means clustering:
+
+1.  Pick *k* points of the *n* observations at random to serve as initial cluster centers.
+
+2.  Assign each *n-k* observation to the cluster whose center is closest.
+
+3.  For each group, calculate means and use them as new centers.
+
+4.  Repeat steps 2-3 until groups stabilize.
+
+Before we apply the algorithm, we need to prepare the data so that all variables are on the same scale.
+
+### a. Prepare the data
+
+We should scale our variables before clustering so that one variable on a large scale can be comparable to another variable with a small scale:
+
+```{r}
+# Prepare the dataset
+athletes_scaled <- athletes |> 
+  # Scale the variables
+  scale() |>
+  # Save as a data frame
+  as.data.frame()
+
+# Take a look at the scaled data
+head(athletes_scaled)
+```
+
+All variables are on the same "unitless" scale!
+
+### b. Apply the algorithm
+
+Let's first focus on 2 variables in the `athletes` dataset, `dist_100` and `disc`. We use the `kmeans(data, k = nb_clusters)` function with `k = 2` to find 2 clusters:
+
+```{r}
+# For reproducible results 
+set.seed(322)
+
+# Use the function kmeans() to find clusters
+kmeans_results <- athletes_scaled |>
+  select(dist_100, disc) |>
+  kmeans(centers = 2) # centers sets the number of clusters to find
+
+# The output provides some information about the clusters and creates 9 different objects
+kmeans_results
+```
+
+We will focus on the `centers` and `cluster` objects:
+
+```{r}
+# Summary about the centers
+kmeans_results$centers
+```
+
+The values of the `centers` indicate which values of `dist_100` and `weight` are at the center of each cluster. For example, an athlete at the center of the first cluster has an above average time to run 100 meters and a below average distance to throw the disc. On the opposite, an athlete at the center of the second cluster has a below average time to run 100 meters and an above average distance to throw the disc. What does it mean about the performance of the athletes in cluster 1 vs cluster 2? 
+
+**Those athletes in cluster 1 perform worst than those athletes in cluster 2 in terms of performance of these 2 events**
+
+
+```{r}
+# A vector attributing a cluster number to each observation
+kmeans_results$cluster
+```
+
+The `cluster` object indicates which observations (i.e., which athlete) is in which cluster.
+
+What else can we do with these clusters?
+
+### c. Visualize and interpret the clusters
+
+We can save the identification of the cluster for each observation in the original dataset to manipulate the observations for each cluster:
+
+```{r}
+# Consider the original dataset
+athletes |>
+  # Save cluster assignment as a new variable
+  mutate(cluster = as.factor(kmeans_results$cluster)) |>
+  # Only keep the variables of interest
+  select(dist_100, disc, cluster) |>
+  head()
+```
+
+#### **Try it! Using `ggplot()`, visualize the relationship between `dist_100` and `disc` with the cluster assignment of each athlete. Can you see the difference between the clusters?**
+
+```{r}
+# Write and submit code here!
+athletes |> 
+    mutate(cluster = as.factor(kmeans_results$cluster)) |>
+    ggplot(aes(x = dist_100, y = disc, color = cluster)) +
+        geom_point() +
+        labs(title = 'Cluster plot of dist_100 and disc',
+             x = '100m time (in seconds)',
+             y = 'discus throw distance (in meters)')
+athletes_scaled |> 
+    mutate(cluster = as.factor(kmeans_results$cluster)) |>
+    ggplot(aes(x = dist_100, y = disc, color = cluster)) +
+        geom_point() +
+        labs(title = 'Cluster plot of dist_100 and disc',
+             x = '100m time (in seconds)',
+             y = 'discus throw distance (in meters)')
+```
+
+**Yes we can somewhat see a difference between the 2 clusters**
+
+
+We can visualize the resulting clusters more directly with the function `fviz_cluster(clustering_results, data)` which actually defines a `ggplot`:
+
+```{r}
+# Let's visualize our data with cluster assignment
+fviz_cluster(kmeans_results, data = athletes |> select(dist_100, disc)) +
+  labs(title = "Results of k-means clustering based on dist_100 and disc")
+```
+
+What characteristics do the athletes share in each cluster? We can create summary statistics of each variable for each cluster to understand some characteristics about the clusters.
+
+#### **Try it! Using `dplyr` functions, find the mean and standard deviation for the variables of `dist_100` and `disc` for each cluster. How do these measures compares between the clusters?**
+
+```{r}
+# Write and submit code here!
+athletes |>
+    mutate(cluster = as.factor(kmeans_results$cluster)) |>
+    select(dist_100, disc, cluster) |>
+    group_by(cluster) |>
+    summarize(mean_dist_100 = mean(dist_100),
+              sd_dist_100 = sd(dist_100),
+              mean_disc = mean(disc),
+              sd_disc = sd(disc))
+```
+
+**The mean 'dist_100' for cluster 1 is higher than cluster 2 however the variance is higher in cluster 2. The mean 'disc' is higher in cluster 2 but the variance is also higher in cluster 2**
+
+
+We compared 2 clusters but how did we decide that our athletes should be separated into 2 groups?
+
+### d. Choose the number of clusters
+
+Determining the number of clusters to use can be tricky. We can either consider the context or using measures such as the average silhouette width (which measures how cohesive and separated clusters are, simultaneously) for multiple values of `k`. A high average silhouette width indicates a good clustering structure: the observations within the groups are close to each other and the groups are very distinct from each other. We can use the function `fviz_nbclust(scaled_data, clustering_algorithm, method)` to compare different values of `k`:
+
+```{r}
+# Maximize the silhouette while keeping a small number of clusters
+fviz_nbclust(athletes_scaled, kmeans, method = "silhouette")
+```
+
+The average silhouette width seems to indicate that 3 clusters maximize the average width silhouette for the `athletes_scaled`.
+
+### e. Include more variables
+
+What if we would like to consider more variables to compare the athletes? We can use all the variables in the `athletes` dataset! *Note: we can only find the Euclidean distance between numeric variables but there are other distances that could also include categorical variables if we had any.*
+
+From above, the average silhouette width indicates that we should consider 3 clusters:
+
+```{r}
+# Use the function kmeans() to find clusters
+kmeans_results <- athletes_scaled |>
+  kmeans(centers = 3)
+```
+
+Visualize the clusters with `fviz_cluster()`. 
+
+```{r}
+# Let's visualize our data with cluster assignment
+fviz_cluster(kmeans_results, data = athletes)
+```
+
+What do the labels of the x-axis and y-axis indicate? Why?
+
+**The x-axis and y-axis labels indicate the first and second principle components or first and second dimension**
+
+
+What characteristics do the athletes share within each cluster? Let's describe each cluster with the mean:
+
+```{r}
+# Create basic summary statistics for each cluster in original units
+athletes |>
+  # Save cluster assignment as a new variable
+  mutate(cluster = as.factor(kmeans_results$cluster)) |>
+  # For each cluster
+  group_by(cluster) |>
+  # Find the mean of all variables
+  summarize_all(mean)
+```

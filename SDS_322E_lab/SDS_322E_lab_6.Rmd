@@ -1,0 +1,223 @@
+---
+title: "Lab 6"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Austine Do, Graceanne Becker, Catherine Zhong
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will explore one of the published books of Jane Austen, accessible through the `janeaustenr` package. Let's first install it:
+
+```{r, eval=FALSE}
+# Install package (Note, eval=FALSE means this code chunk is not submitted when knitting)
+install.packages("janeaustenr")
+```
+
+Then load that package and other necessary packages for today:
+
+```{r, message=FALSE}
+# If you haven't installed these packages remember to do so from the Text Mining Worksheet
+library(janeaustenr)
+library(tidyverse)
+library(tidytext)
+library(ggwordcloud)
+```
+
+Let's take a quick look at the data available for the books:
+
+```{r}
+# Save data in your environment
+austen_books <- austen_books()
+
+# Take a quick look
+austen_books |>
+  tail()
+```
+
+The text is split by line for each book. The goal of the lab is to conduct some sentiment analysis for one of these books.
+
+------------------------------------------------------------------------
+
+### Question 1: (3 pts)
+
+Find the number of lines for each book in `austen_books`. Which book has the greatest number of lines? *Note: it's ok to count empty lines, titles, etc. Just find the total number of lines.*
+
+```{r}
+# Finds the total number of lines by novel
+austen_books |>
+    group_by(book) |>
+    summarize(length = n()) |>
+    arrange(length)
+```
+
+**The book that has the greatest number of lines is the novel 'Emma'**
+
+------------------------------------------------------------------------
+
+### Question 2: (6 pts)
+
+What does the code below do?
+
+**The code below creates a variable called `chapter` that keeps track of the chapter of the line in each book. Note: `ungroup()` is considering text as a whole again, not just per book.**
+
+```{r}
+# Select one book and code the number of chapters
+austen_books |>
+  group_by(book) |>
+  mutate(chapter = cumsum(str_detect(text, "^Chapter|^CHAPTER"))) |>
+  ungroup()
+# Continue the code
+```
+
+Continue the code above to:
+
+1.  Choose to keep **only one of the books** (the book of your choice!),
+
+2.  Get rid of the lines for chapter 0,
+
+3.  Get rid of the empty lines,
+
+4.  Get rid of the lines showing the chapter sections. *Hint: str_detect() with Regex would be useful again!* Note: some novels also have "volumes". Get rid of those lines as well.
+
+Finally, call the resulting dataset `book`.
+
+How many chapters were contained in the `book` you chose?
+
+```{r}
+# Creates a data frame of lines from Pride & Prejudice excluding chapter 0 and section titles
+
+book <- austen_books |> 
+                group_by(book) |>
+                mutate(chapter = cumsum(str_detect(text, "^Chapter|^CHAPTER"))) |>
+                ungroup() |>
+                filter(book == 'Pride & Prejudice' & chapter != 0 & text != '' & !str_detect(text, '^CHAPTER|^volumes|^Chapter'))
+
+length(unique(book$chapter))
+    
+```
+
+**There are 61 chapters in the novel 'Pride & Prejudice'**
+
+------------------------------------------------------------------------
+
+### Question 3: (3 pts)
+
+Next, split each line into words with `unnest_tokens()` and save the resulting dataset as `words_book`:
+
+```{r}
+# This creates a data frame of only words from Pride & Prejudice
+book |>
+    unnest_tokens(input = text, output = word) -> words_book
+```
+
+What are the 10 most common words in the book you chose? Do they reveal any pattern?
+
+```{r}
+# Finds the top 10 most common words in Pride & Prejudice
+words_book |>
+    group_by(word) |>
+    summarize(frequency = n()) |>
+    slice_max(n = 10, frequency)
+```
+
+**The most common words in the book we chose were 'the', 'to', 'of', 'and', 'her', 'i', 'a', 'in', 'was', and 'she'. This does not show any pattern as these words don't mean anything as stand alone words.**
+
+------------------------------------------------------------------------
+
+### Question 4: (5 pts)
+
+After getting the words by themselves, let's get rid of the stop words with the `SMART` lexicon:
+
+```{r}
+# Recall the SMART lexicon
+SMARTstops <- stop_words |> filter(lexicon == "SMART")
+```
+
+Use a joining function to get rid of stop words in `words_book` then find the 10 most common words and display them in a word cloud (most frequent words should appear bigger and in a different color). Do you notice any pattern in these words?
+
+```{r}
+# Finds the top 10 most common words excluding words from the SMART lexicon and displays a word cloud
+words_book |>
+    group_by(word) |>
+    summarize(frequency = n()) |>
+    anti_join(SMARTstops,  by = 'word') |>
+    slice_max(n = 10, frequency) |>
+    ggplot(aes(label = word, size = frequency, color = frequency)) +
+        geom_text_wordcloud() +
+        scale_size_area(max_size = 20) +
+        scale_color_gradient(low = 'blue', high = 'red')
+        theme_minimal()
+```
+
+**Most of these top 10 most common words are just titles or names.**
+
+------------------------------------------------------------------------
+
+### Question 5: (6 pts)
+
+Let's take a look at the sentiments associated with words in the book and how these sentiments change as the story goes. Consider the sentiment value associated with each word from the `afinn` lexicon:
+
+```{r}
+# Sentiments value
+get_sentiments("afinn") |> head()
+```
+
+Follow these steps to keep track of the sentiments as the story goes:
+
+1.  Use a joining function to only keep the words in `words_book` that are associated with a sentiment value.
+
+2.  Find the average sentiment value per chapter.
+
+3.  Create a `ggplot` with `geom_line()` to represent the average sentiment value across the chapters.
+
+How do the sentiments evolve as the story goes?
+
+```{r}
+# Joins the sentiment data frame with the words_book data frame and summarizes the average sentiment per chapter
+words_book |>
+    inner_join(get_sentiments('afinn')) |>
+    group_by(chapter) |>
+    summarize(average_sentiment = mean(value)) |>
+    ggplot(aes(x = chapter, y = average_sentiment)) +
+        geom_line() +
+        labs(title = 'Average sentiment as the novel \'Pride & Prejudice\' progresses',
+             x = 'chapter number',
+             y = 'average sentiment')
+
+```
+
+**The sentiment varies a lot throughout the novel Pride & Prejudice so there is not an obvious sentiment uptrend or downtrend as the novel progresses.**
+
+------------------------------------------------------------------------
+
+### Question 6: (1 pt)
+
+After investigating how the sentiments change over the chapters, did the data match your expectations or not? If the data differed from your expectation, provide a possible explanation for why the data differed from what you expected.
+
+**The data does not meet our expectation because we thought there would be a clear trend in sentiment whether it was an uptrend or downtrend but the graph shows us that there was a lot of variance in the average sentiment as the novel progressed. One possible reason for this might be because the author might not want to use exclusively negative or positive words as the novel/novel series is a critique so she may want to address both the good and bad aspects of the topics which requires a mixture of both negative and positive sentiment words.**
+
+------------------------------------------------------------------------
+
+### Formatting: (1 pt)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope and to identify your group members.

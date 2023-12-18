@@ -1,0 +1,166 @@
+---
+title: "Lab 2"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Austine Do, Graceanne Becker, Catherine Zhong
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will explore the dataset `diamonds` contained in the package `tidyverse`. Let's first upload the funnctions and objects available through that package:
+
+```{r, warning=FALSE}
+# Upload the package
+library(tidyverse)
+```
+
+The dataset consists of prices and quality information from about 54,000 diamonds. The first few observations are listed below.
+
+```{r}
+head(diamonds)
+```
+
+### Question 1: (3 pts)
+
+Save the dataset `diamonds` in the environment and name it using the initials of all team members. *Remember that you can get more details about the dataset by running `?diamonds` in the console.*
+
+```{r}
+# this code saves the diamonds dataset into the environment as our team initials
+czadgb <- diamonds
+```
+
+How many rows are there in the dataset? How many columns?
+
+```{r}
+# this code gets the dimension of the dataset
+dim(diamonds)
+str(diamonds)
+```
+
+**The dataset has 53940 rows and 10 columns.**
+
+------------------------------------------------------------------------
+
+### Question 2: (5 pts)
+
+Consider the variable `price` in US dollars. Represent the distribution of this variable with an appropriate graph using `ggplot()` (include a title and label). Comment on the shape of the distribution and report the appropriate statistics. Write a sentence to interpret these statistics. 
+
+```{r}
+# This the distribution of the diamond prices as a histogram
+diamonds |>
+    ggplot(aes(x = price)) + 
+    geom_histogram(binwidth = 1000, bins = 20, center = 500, color = 'red', fill = 'blue') +
+    labs(title = 'distribution of diamond prices',
+         x = 'prices (in USD)',
+         y = 'frequency') 
+summary(diamonds$price)
+IQR(diamonds$price)
+```
+
+**The distribution of the diamond prices are positively skewed. The median of diamond price is $2401 and the IQR is $4374.25**
+
+------------------------------------------------------------------------
+
+### Question 3: (6 pts)
+
+The "4 Cs" of diamonds are traditionally `carat`, `cut`, `color`, and `clarity`. Create a new variable in your dataset, called `topfourC`, that has a `TRUE` value when satisfying ALL of these conditions (and is FALSE otherwise):
+
+-   the diamond's cut is Ideal or Premium
+
+-   the color is D, E, or F (colorless)
+
+-   the clarity is IF, VVS1 or VVS2 (internally flawless or with very very slight inclusions)
+
+-   the diamond is in the top 25 percent for carat (i.e., carat is above the 3rd quartile).
+
+```{r}
+# This code adds the variable 'topfourC' variable to the data frame
+summary(diamonds$carat)
+
+czadgb <- mutate(czadgb, topfourC = ifelse((carat > 1.0400) & (cut == 'Ideal' | cut == 'Premium') & (color == 'D' | color == 'E' | color == 'F') & (clarity == 'IF' | clarity == 'VVS1' | clarity == 'VVS2'), TRUE, FALSE))
+```
+
+Find the number of diamonds that meet these criteria. Is it rare for a diamond to meet this criteria?
+
+```{r}
+# This counts the number of diamonds that satisfies the top four C's conditions
+sum(czadgb$topfourC == TRUE)
+291/53490
+```
+
+**Yes it is rarely because based on this dataset only 0.5% of diamonds meet this expectation**
+
+------------------------------------------------------------------------
+
+### Question 4: (4 pts)
+
+Focusing on the diamonds meeting the conditions for `topfourC`, represent the distribution of `price` with the same type of graph you used in question 3 (include a title and label). How do the two distributions (distribution of `price` for all diamonds vs distribution of `price` for top diamonds) compare? *Hint: refer to shape, center, and spread.* 
+
+```{r}
+# This is the price distribution of the top four C's diamonds as a histogram
+
+czadgb |>
+    filter(topfourC == TRUE) |>
+    ggplot(aes(x = price)) + 
+    geom_histogram(binwidth = 1000, bins = 20, color = 'black', fill = 'orange') +
+    labs(title = 'distribution of  top 4 C\'s diamond prices',
+         x = 'prices (in USD)',
+         y = 'frequency')
+
+top4c <- filter(czadgb, czadgb$topfourC == TRUE)
+summary(top4c$price)
+IQR(top4c$price)
+
+```
+
+**Both are positively skewed but the median for the top four C's diamond price was much higher at $11846 and the IQR was $3149.**
+
+------------------------------------------------------------------------
+
+### Question 5: (5 pts)
+
+Still focusing on the diamonds meeting the conditions for `topfourC`, choose a numeric variable that you think might affect the `price` of a top diamond. Write a question you would like to investigate using these variables (could be a question one of you suggested in the intro lab):
+
+**Does the weight of the diamond usually lead to a higher price point?**
+
+Using a `ggplot` with `geom_point()`, make a visualization to answer your question (include a title and labels).
+
+```{r}
+# A scatter plot of the price vs. carat 
+top4c |> 
+    ggplot() + 
+    geom_point(aes(x = price, y = carat), color = 'blue') +
+    labs(title = 'Price as a function of carat',
+         x = 'Carat',
+         y = 'Price (in USD)')
+```
+
+How would you interpret what you see in this visualization?
+
+**There is a weak and positive correlation between the carat (weight) of top four C's diamonds and the price of top four C's diamonds.**
+
+------------------------------------------------------------------------
+
+### Formatting: (2 pts)
+
+Make sure the names of all group members are included at the beginning of the document.
+
+Knit your file! You can knit into pdf directly or into html. Once it knits in html, click on `Open in Browser` at the top left of the window pops out. Print your html file into pdf from your browser.
+
+Any issue? Ask other classmates or TA!
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope and to identify your group members.

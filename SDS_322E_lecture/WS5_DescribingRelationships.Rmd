@@ -1,0 +1,303 @@
+---
+title: "Worksheet 5: Describing Relationships"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE, 
+                      warning = TRUE,
+                      message = FALSE,
+                      fig.align = "center", 
+                      R.options = list(max.print=50))
+
+# Edit the file starting below
+
+```
+
+In this worksheet, we will use `ggplot` and some `geom_...()` functions to explore relationships between variables.
+
+## 1. Set up and introduction to dataset
+
+Remember to call the package `ggplot2` which is in `tidyverse` and contains the functions we will use for visualization:
+
+```{r, echo=FALSE}
+# Load a package
+library(tidyverse)
+```
+
+We will continue working with the dataset `msleep` from the previous worksheet:
+
+```{r}
+# Take a look
+head(msleep)
+```
+
+The type of plot we will use depends on the types of the variables.
+
+## 2. Comparing two categorical variables
+
+When comparing two categorical variables, we may wonder what are the most and least common categories of one variable for other categories of the other variable. For example, let's compare the diet of some mammals in comparison to their brain size (small or large). We will focus on data that is not missing with a new variable:
+
+```{r}
+# Create a new dataset to visualize
+msleep_vore_brainsize <- msleep |>
+  # Remove missing values for brainwt and vore
+  filter(brainwt > 0 & vore != "NA") |>
+  # Create a new variable (there was no missing value for brainwt)
+  mutate(brainsize = ifelse(brainwt < median(brainwt), "small", "large")) 
+```
+
+Let's use that dataset for the rest of the worksheet.
+
+### a. Using a stacked bar graph
+
+We can create stacked bar graphs that compares the distribution of two categorical variables by stacking their counts. Let's compare the brain size (as a recoded categorical variable) to the diet of mammals:
+
+```{r}
+# Represent the diet on the x-axis and the brain size as a filling color
+ggplot(data = msleep_vore_brainsize) +
+  # Use `fill =` to differentiate between small and large brain size
+  geom_bar(aes(x = vore, fill = brainsize)) 
+```
+
+It might be difficult to see if there is a diet with a higher proportion of small or large mammals. Let's try some other graphs.
+
+### b. Using a side-by-side bar graph
+
+A side-by-side bar graph does not stack the bars but put them side-by-side with the option `position = "dodge"`:
+
+```{r}
+# Represent the diet on the x-axis and the brain size as a filling color
+ggplot(data = msleep_vore_brainsize) +
+  # Create a side-by-side bar graph with the option `position = "dodge"`
+  geom_bar(aes(x = vore, fill = brainsize), position = "dodge") 
+```
+
+But since there were a different number of mammals within each diet, it is still difficult to compare the brain size across the diets.
+
+### c. Using a segmented bar graph (usually preferred)
+
+We can display the relative distribution at each level with a segmented bar graph with the option `position = "fill"`:
+
+```{r}
+# Represent the diet on the x-axis and the brain size as a filling color
+ggplot(data = msleep_vore_brainsize) +
+  # Create a segmented bar graph with the option `position = "fill"`
+  geom_bar(aes(x = vore, fill = brainsize), position = "fill") 
+```
+
+Now we can see which diet has the highest proportion of small vs large mammals.
+
+Note that the default label for the y-axis is count. But what does it represent?
+
+#### **Try it! Adjust the label for the y-axis in the previous segmented bar graph. Also swap the variables for `x =` and `fill =`. Does the graph look any different?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = msleep_vore_brainsize) + 
+    geom_bar(aes(x = brainsize, fill = vore), position = 'fill') +
+    labs(x = 'brainsize',
+         y = 'proportion')
+```
+
+**Write sentences here!**
+
+### d. Reporting frequencies and relative frequencies
+
+We can report frequencies/relative frequencies by crossing two categorical variables. We can use the function `table()` and `prop.table()` to find those:
+
+```{r}
+# Find frequencies
+table(msleep_vore_brainsize$vore, msleep_vore_brainsize$brainsize)
+```
+
+For example, out of the omnivores, 8 had a large brain weight and 9 had small brain weight.
+
+```{r}
+# Find proportions (from frequency table)
+prop.table(table(msleep_vore_brainsize$vore, msleep_vore_brainsize$brainsize), 1)
+prop.table(table(msleep_vore_brainsize$vore, msleep_vore_brainsize$brainsize), 2)
+```
+
+What's the difference between these two tables?
+
+## 3. Comparing a numeric variable and a categorical variable
+
+When comparing a numeric variable across categories, we may wonder if the distribution of the numeric variable (shape, center, spread) is about the same across all categories or not.
+
+### a. Using comparative boxplots
+
+The easiest way (using R) to compare the distribution of a numeric variable across categories is to consider comparative boxplots. Let's compare the brain weight (as a number now) of mammals across different diets:
+
+```{r}
+# Represent the diet on the x-axis and the brain weight on the y-axis
+ggplot(data = msleep_vore_brainsize, aes(x = vore, y = brainwt)) +
+  # Just add some color for fun
+  geom_boxplot(aes(fill = vore))
+```
+
+Herbivores seems to contain mammals with the highest values of brain weight.
+
+#### **Try it! What would help us better visualize these boxplots containing very low values but also some extremely high values? Improve this visualization and make sure to add labels. How does the brain weight of mammals seem to differ across the diets?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = msleep_vore_brainsize, aes(x = vore, y = brainwt)) +
+    geom_boxplot(aes(fill = vore)) + 
+    scale_y_log10() +
+    labs(x = 'diet type',
+         y = 'log10(BRAIN_WEIGHT)')
+```
+
+**Write sentences here!**
+
+### b. Using comparative histograms
+
+We need to construct comparative histograms carefully. Let's see why:
+
+```{r}
+# Represent the brain weight on the x-axis and the diet as a filling color
+ggplot(data = msleep_vore_brainsize, aes(x = brainwt, fill = vore)) +
+  geom_histogram()
+```
+
+Pretty ugly: don't fill histograms per categories like that!
+
+What if we create one histogram for each diet instead? We can easily do that with faceting:
+
+```{r}
+# Represent the brain weight on the x-axis
+ggplot(data = msleep_vore_brainsize, aes(x = brainwt)) +
+  # using a histogram
+  geom_histogram() +
+  # Facet per diet and show all graphs in 1 column (easier to compare histograms vertically)
+  facet_wrap(~vore, ncol = 1)
+```
+
+#### **Try it! It might also be easier to superpose density plots instead of histograms (recall the `geom_density()` function). Represent the total amount of sleep (`sleep_total`) for small vs large brain sizes by superposing two density plots. You might need to adjust transparency. Is there a difference in the amout of sleep mammals get based on their brain size?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = msleep_vore_brainsize) + 
+    geom_density(aes(x = sleep_total, fill = brainsize), alpha = 0.25)
+```
+
+**Write sentences here!**
+
+### c. Reporting center and spread for each category
+
+For now, we haven't learned the tools for the best way to do this (for example, calculating mean and SD of brain weight for each diet). But we'll learn soon!
+
+### d. Using a special case of bar graph
+
+We can represent the mean value of a numeric variable for each category using a bar with a `stat` option:
+
+```{r}
+# Represent the diet on the x-axis and brain weight on the y-axis, fill by diet for fun
+ggplot(data = msleep_vore_brainsize, aes(x = vore, y = brainwt, fill = vore)) +
+  # By default a bar represents a count but we can change what the height of a bar represents
+  # Represent a summary stat using the mean function 
+  geom_bar(stat = "summary", fun = "median") +
+  # Adjust the label of the y-axis accordingly
+  labs(y = "Median brain weight")
+```
+
+But as we mentioned before, we should not only focus on a typical value for a numeric variable but we should also consider how spread out the values are. We can add error bars to our plot with `geom_errorbar()` (representing +/- 1 standard deviation from the mean):
+
+```{r}
+# Represent the diet on the x-axis and brain weight on the y-axis, fill by diet for fun
+ggplot(data = msleep_vore_brainsize, aes(x = vore, y = brainwt, fill = vore)) +
+  # By default a bar represents a count but we can change what the height of a bar represents
+  # Represent a summary stat using the mean function 
+  geom_bar(stat = "summary", fun = "mean") +
+  # Adjust the label of the y-axis accordingly
+  labs(y = "Mean brain weight") +
+  # Add error bars
+  geom_errorbar(stat = "summary", fun.data = "mean_se")
+```
+
+Why is the error bar for herbivore so big compared to the others?
+
+## 4. Comparing two numeric variables
+
+When comparing two numeric variables, we may wonder if high values on one variable are associated with high values on another variable.
+
+### a. Using a scatterplot
+
+The relationship between two quantitative variables is typically displayed using scatterplots. Let's compare `brainwt` to `bodywt`:
+
+```{r}
+# Represent the body weight on the x-axis and brain weight on the y-axis
+ggplot(data = msleep_vore_brainsize, aes(x = bodywt, y = brainwt)) +
+  # Using points
+  geom_point()
+```
+
+The high values for body weight and brain weight make it difficult to see if there is any trend for lower values of these variables. Let's change the scale displayed on both the x- and y-axis:
+
+```{r}
+# Represent the body weight on the x-axis and brain weight on the y-axis
+ggplot(data = msleep_vore_brainsize, aes(x = bodywt, y = brainwt)) +
+  geom_point() +
+  # Change both the x- and y-axis to a logarithmic scale
+  scale_x_log10() + scale_y_log10() +
+  # Adjust labels accordingly
+  labs(x = "log(body weight) in log(kg)",
+       y = "log(brain weight) in log(kg)")
+```
+
+Using a logarithmic scale, it is easier to visualize the relationship between the two variables for all body/brain sizes!
+
+If the axes appear as a scientific notation, you can change the threshold for scientific notation:
+
+```{r}
+# Changing threshold for scientific notation
+options(scipen = 999)
+```
+
+### b. Reporting correlation
+
+Correlation describes the strength of a (linear) relationship between two variables. With the function `cor()`, we refer by default to the Pearson correlation coefficient which takes values between -1 (strong negative relationship) and 1 (strong positive relationship) with 0 indicating that there is no relationship.
+
+```{r}
+# Find the correlation between two variables
+cor(msleep_vore_brainsize$bodywt, msleep_vore_brainsize$brainwt)
+
+# It would actually be more appropriate to report this correlation
+cor(log(msleep_vore_brainsize$bodywt), log(msleep_vore_brainsize$brainwt))
+```
+
+#### **Try it! Calculate the correlation coefficient between `sleep_total` and `awake`. Why does it make sense?**
+
+```{r}
+# Write and submit code here!
+cor(msleep_vore_brainsize$sleep_total, msleep_vore_brainsize$awake)
+```
+
+**Write sentences here!**
+
+## 5. Relationships with more than 2 variables
+
+We can display the relationships between more than 2 variables but it can become tricky. There are many ways to adapt graphs to display more than two variables: grouping by color, size, shape, using faceting, etc.
+
+#### **Try it! Create a scatterplot to investigate the relationship between `sleep_total` and `bodywt` (the latter being expressed in a log scale). Color the points by the different diets and control the size of the points depending on the `sleep_rem` of a mammal. Remember to add labels! Notice anything in this graph?**
+
+```{r}
+# Write and submit code here!
+ggplot(data = msleep_vore_brainsize) +
+    geom_point(aes(x = bodywt, y = sleep_total, color = vore, size = sleep_rem)) +
+    scale_x_log10() +
+    labs(x = 'total sleep (hrs)',
+         y = 'body weight',
+         title = 'body weight vs total sleep',
+         color = 'Diet',
+         size = 'REM Sleep')
+```
+
+**Write sentences here!**

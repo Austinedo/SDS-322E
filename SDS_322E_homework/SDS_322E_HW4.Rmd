@@ -1,0 +1,340 @@
+---
+title: "HW 4"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+
+# Upload packages
+library(tidyverse)
+```
+
+### Enter your name and EID here: Austine Do (ahd589)
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+------------------------------------------------------------------------
+
+## Part 1
+
+The dataset `world_bank_pop` is a built-in dataset in `tidyverse`. It contains information about the total population and population growth, overall and more specifically in urban areas, for countries around the world.
+
+### Question 1: (2 pts)
+
+Why is the `world_bank_pop` dataset not tidy? What shall we do to make it tidy?
+
+```{r}
+# Displaying the head of world_bank_pop
+head(world_bank_pop)
+```
+
+**The dataset is not tidy because the years that are currently columns should just be a single variable column called 'year' and the values for 'indicator' column should each have their own column.**
+
+Use one of the `pivot` functions on `world_bank_pop` to create a new dataset with the years 2000 to 2017 appearing as variable `year`, and the different values for the indicator variable are in a variable called `indicator_value`. Double check that the `year` variable appears as a **numeric** variable. Continue tidying `world_bank_pop` with another `pivot` function, with the different categories for the `indicator` variable appearing as their own variables. Is the data tidy now? It should be! Save the resulting dataset as `myworld`.
+
+```{r}
+# Get the column names of the dataset
+world_bank_pop_col_names <- colnames(world_bank_pop)
+
+# Pivot longer to get all the year columns into one column named 'year' and get the values as population values
+myworld <- world_bank_pop |>
+                pivot_longer(cols = world_bank_pop_col_names[3:20],
+                             names_to = 'year',
+                             values_to = 'population') |>
+                mutate_at('year', as.numeric)
+
+# Pivot wider to get all the variables from 'indicator' column into their own column referencing the population column
+myworld <- myworld |>
+                pivot_wider(names_from = indicator,
+                            values_from = population)
+myworld
+```
+
+**The dataset is now much more tidy and makes more sense when looking at the format of the dataset.**
+
+------------------------------------------------------------------------
+
+### Question 2: (2 pts)
+
+Create a `ggplot` to display how the world's urban population growth has changed over the years. *Note: the country code `WLD` represents the entire world.* Why does this graph not contradict the fact that the urban population worldwide is increasing over the years?
+
+```{r}
+# Scatter plot of the world's urban population growth
+myworld |>
+    filter(country == 'WLD') |>
+    ggplot() +
+    geom_point(aes(x = year, y = SP.URB.GROW), color = 'blue') +
+    labs(title = 'World\'s urban population growth over time',
+         x = 'Year',
+         y = 'Urban Population Growth')
+    
+```
+
+**This graph doesn't contradict the fact the world's urban population has increased over time because this doesn't display any values that are negative or zero values which would indicate a stagnation or decline in population growth.**
+
+Which country code in `myworld` had the highest population growth in 2017?
+
+```{r}
+# Find the country with the highest population growth in 2017
+myworld |>
+    filter(year == 2017) |>
+    slice_max(n = 10, SP.POP.GROW)
+
+```
+
+**The country with the highest population growth in 2017 was the country with the country code QAT.**
+
+------------------------------------------------------------------------
+
+### Question 3: (2 pts)
+
+When answering the previous question, we can only report the three-letter code and (probably) have no idea what the actual country is. Let's use the package `countrycode` to join some relevant information such as the country name:
+
+```{r eval=FALSE}
+# Install the package (only needed once)
+install.packages("countrycode")
+```
+
+This package contains a built-in dataset called `codelist` that has information about the coding system used by the World bank (and many other coding systems):
+
+```{r results='hide'}
+# Call the countrycode package
+library(countrycode)
+
+# Take a look at the dataset
+head(codelist)
+```
+
+Create a list of country codes to only keep the variables `continent`, `wb` (World Bank code), and `country.name.en` (country name in English). Then remove countries with missing `wb` code and missing `continent`. Save the resulting dataset as `mycodes`.
+
+```{r}
+# Selects only 3 columns and filters out rows with NA/missing values for 'wb' and 'continent' column
+mycodes <- codelist |>
+                select(continent, wb, country.name.en) |>
+                filter(!is.na(wb) & !is.na(continent))
+```
+
+How many distinct country codes are there in `mycodes`?
+
+```{r}
+# Finds the unique number of country codes in the dataset 'mycodes'
+length(unique(mycodes$wb))
+```
+
+**There are 216 distinct country codes in the 'mycodes' dataset.**
+
+------------------------------------------------------------------------
+
+### Question 4: (2 pts)
+
+Is there the same number of distinct country codes in `myworld` than there were in `mycodes`? Why or why not?
+
+```{r}
+# Finds the number of distinct country codes in the `myworld`
+length(unique(myworld$country))
+```
+
+**There are more country codes in \`myworld\` than in `mycodes` this is likely because we removed rows with missing country code and continent values from the `mycodes`.**
+
+Use the `inner_join()` function to add the information of the country names **to** `myworld` dataset, matching the two datasets based on the World Bank code. Save the resulting dataset as `mycountries`.
+
+```{r}
+# Using inner_join() to join 'mycodes' to 'myworld'
+mycountries <- inner_join(myworld, mycodes, by = c('country' = 'wb'))
+```
+
+Now, which country code in `mycountries` had the highest population growth in 2017?
+
+```{r}
+# Displays the top 10 countries with the highest population growth in 2017 
+mycountries |>
+    filter(year == 2017) |>
+    slice_max(n = 10, SP.POP.GROW)
+```
+
+**QAT had the highest population growth in 2017.**
+
+------------------------------------------------------------------------
+
+### Question 5: (2 pts)
+
+Compare the average urban population growth per `continent` over the years using `mycountries`. Which continent had constantly the highest average urban population growth over the years? the lowest?
+
+```{r}
+# Grouping by continent and year and finding the average urban population growth
+mycountries |>
+    group_by(continent, year) |>
+    summarize(avg.urb.pop.grow = sum(SP.URB.GROW) / n()) |>
+    arrange(desc(avg.urb.pop.grow))
+```
+
+**The continent with the highest average urban population growth over the years is Africa while the continent with the lowest average urban population growth is Europe. It is worth noting that Americas had no value for average urban population growth for any year so the previous conclusion is drawn purely from the calculated data that did not have missing values.**
+
+Let's focus on countries in Africa for the year of 2017 from now on. Save the resulting dataset as `myafrica2017`.
+
+```{r}
+# Subset `mycountries` to only contain countries in Africa for 2017
+myafrica2017 <- mycountries |>
+                    filter(continent == 'Africa' & year == 2017)
+```
+
+------------------------------------------------------------------------
+
+### Question 6: (2 pts)
+
+When dealing with spatial data, we can actually visualize information on a map if we have geographic information such as latitude and longitude. Let's use a function called `map_data()` to get geographic coordinates about countries in the world from the `maps` package:
+
+```{r eval=FALSE}
+# Install package (only needed once)
+install.packages("maps")
+```
+
+Take a look at the built-in dataset `mapWorld`:
+
+```{r}
+# Geographic coordinates about countries in the world
+mapWorld <- map_data("world")
+
+# Take a quick look
+head(mapWorld)
+```
+
+Inner join `mapWorld` with `myafrica2017`. What variable in each dataset should we use to join? *Note: the variables do not have the same name for each dataset but they contain the same information.* Save the resulting dataset as `mymap`.
+
+**We should use 'region' from `mapWorld` and 'country.name.en' from `myafrica2017`**
+
+```{r}
+# Joins `mapWorld` and `myafrica2017` togoether
+mymap <- inner_join(myafrica2017, mapWorld, by = c('country.name.en' = 'region'))
+```
+
+------------------------------------------------------------------------
+
+### Question 7: (2 pts)
+
+Let's visualize how urban population growth varied across African countries in 2017 using the `ggmap` package:
+
+```{r eval=FALSE}
+# Install package (only needed once)
+install.packages("ggmap")
+```
+
+Use the R code provided below to make a map. Add a comment after each `#` to explain what each component of this code does. *Note: it would be a good idea to run the code piece by piece to see what each layer adds to the plot.* Once your code works, get rid of the option `eval=FALSE` so it will actually run this code chunk when knitting!
+
+```{r}
+# Upload the ggmap package
+library(ggmap)
+
+# Build a map!
+mymap |>
+  # creates the plot where x is longitude, y is latitude, group is the country group, 
+  # and fills the country that is drawn with its corresponding SP.URB.GROW value
+  ggplot(aes(x = long, y = lat, group = group, fill = SP.URB.GROW)) +
+  # sets the outline of the shape of the country to be black
+  geom_polygon(colour = "black") +
+  # changes the color gradient for the range of values found in SP.URB.GROW column
+  scale_fill_gradient(low = "red", high = "blue") +
+  # Makes the labels for the plot
+  labs(fill = "Urban Growth",
+       title = "Urban Growth in Africa in 2017",
+       x ="Longitude",
+       y ="Latitude")
+```
+
+Comment on the distribution of urban population growth across African countries in 2017:
+
+**We can see from the map that the countries with the highest urban growth are generally in the more tropical and temperate climate regions of Africa whereas the countries with the least urban population growth are on the most Northern and Southern parts of Africa which is where the more extreme climates and regions are like the Deserts of North Africa.**
+
+------------------------------------------------------------------------
+
+### Question 8: (1 pt)
+
+Did you notice that there was some missing data for some of these countries? Check if any information from `myafrica2017` was not contained in `mapWorld`, meaning that there might not be a match for a country in `mapWorld` for some African countries in `myafrica2017` and only display the names of countries for which it might be the case:
+
+```{r}
+# Finds and displays the countries in `myafrica2017` that were not contained in `mapworld`
+anti_join(myafrica2017, mapWorld, by = c('country.name.en' = 'region'))
+```
+
+You should find that some countries did not have a match. Why do you think this happened? *Note: This question can be challenging! You will have to do some research about each of these countries: this is pretty typical for a data scientist though! We need to get more knowledge about the context to make sense of the data.*
+
+**I believe this happened because some of these countries might have been aggregated under a larger, more well-known territory, might have emerged in recent years, or have had a name change that `mapWorld` might have not contained or been updated to contain.**
+
+Using the `str_detect()` function, find the distinct country names in `mapWorld` that maybe be potential matches for countries in `myafrica2017`:
+
+```{r}
+# Using string functions to potentially find matches between the missing countries
+# and the countries that exist in `mapWorld`
+
+missing_country_names <- 'Ivory|Coast|Congo|Kinshasa|Brazzaville|Sao|Tome|Principe|Eswatini|Swaziland'
+unique(mapWorld[str_detect(mapWorld$region, missing_country_names), 'region'])
+
+```
+
+Recode the country names in `myafrica2017` so that the 5 countries with no previous match will now have a match. *Hint: use `recode()` inside `mutate()` as described in our WS10 or in this article <https://www.statology.org/recode-dplyr/>.* Then add a pipe and joining function to add the geographic information in `mapWorld` to the countries in `myafrica2017`. Add another pipe and update the map from the previous question!
+
+```{r}
+# Recode and update the `myafrica2017` dataset with the matched country names
+# and add the country data from `mapWorld` to `myafrica2017`
+
+recode_country_names <- c('Côte d’Ivoire' = 'Ivory Coast',
+                          'Congo - Kinshasa' = 'Democratic Republic of the Congo',
+                          'Congo - Brazzaville' = 'Republic of Congo',
+                          'São Tomé & Príncipe' = 'Sao Tome and Principe',
+                          'Eswatini' = 'Swaziland')
+
+myafrica2017 <- myafrica2017 |>
+                    mutate(country.name.en.updated = recode(country.name.en, !!!recode_country_names)) |>
+                    inner_join(mapWorld, by = c('country.name.en.updated' = 'region'))
+
+# Using the updated `myafrica2017` dataset to update the map plot
+myafrica2017 |> ggplot(aes(x = long, y = lat, group = group, fill = SP.URB.GROW)) +
+                      geom_polygon(colour = "black") +
+                      scale_fill_gradient(low = "red", high = "blue") +
+                      labs(fill = "Urban Growth",
+                           title = "Urban Growth in Africa in 2017",
+                           x ="Longitude",
+                           y ="Latitude")
+```
+
+------------------------------------------------------------------------
+
+## Part 2
+
+Recall the context about the Internet clothing retailer Stitch Fix wanting to develop a new model for selling clothes to people online (see HW 1 and HW2). Their basic approach is to send people a box of 5--6 items of clothing and allow them to try the clothes on. Customers keep (and pay for) what they like while mailing back the remaining clothes. Stitch Fix then sends customers a new box of clothes a month later.
+
+You built an intake survey distributed to customers when they first sign up for the service. You are now analyzing the results of this survey to choose some variables for predicting what types of clothes each customer would be more likely to keep.
+
+### Question 9: (2 pts)
+
+When analyzing the results of the survey, you noticed that some customers left their demographic information (for example: age, location, ...) blank. Why did that occur? What could be some potential issues on the analysis?
+
+**A couple of reasons why the customers may have left their demographic information blank is for privacy reason or perhaps the survey design was confusing or not inclusive enough for the customer. One potential issue that may result is a smaller sample size of data since the amount of complete/accurate data for analysis will be reduced and another issue would be limitations on the generalization of the analysis since the analysis may be less representative of the customer population.**
+
+------------------------------------------------------------------------
+
+### Question 10: (2 pts)
+
+When analyzing the hip size (in cm), waist size (in cm), and the size for skirts, you noticed that a customer reported a hip size of 38, waist size of 28, and a size of L. What could be some potential issues related to these values and what could you do about it?
+
+**Issues that may be related to the inputted values are ensuring that both numerical measures (hip size and waist size) are in the same and correct unit, inaccurate data that may not represent the customer's actual measurements (which can happen if they estimated or guessed), and inconsistency within the categorical variable 'size' as S, M, L, etc. may differ across brands, countries, and regions. There are many ways we can address these issues. One thing we can do is use data validation techniques (such as checking for outliers, patterns of error, and unlikely values) and another thing we can do is convert the 'size' variable to a numerical variable that is based on a specific sizing chart to better standardize the analysis.**
+
+------------------------------------------------------------------------
+
+## Formatting: (1 pt)
+
+Knit your file! You can knit into html and once it knits in html, click on `Open in Browser` at the top left of the window that pops out. **Print** your html file into pdf from your browser.
+
+Is it working? If not, try to decipher the error message: look up the error message, consult websites such as [stackoverflow](https://stackoverflow.com/) or [crossvalidated](https://stats.stackexchange.com/).
+
+Finally, remember to select pages for each question when submitting your pdf to Gradescope.

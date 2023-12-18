@@ -1,0 +1,282 @@
+---
+title: "Worksheet 2: Basic Data Manipulation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# This grey area is called a code chunk
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, # show all code chunks in document
+                      eval = TRUE, # run all code chunks
+                      warning = TRUE, # show warning messages
+                      message = FALSE,
+                      fig.align = "center", # figures are centered
+                      R.options = list(max.print=50)) # print 50 elements max
+```
+
+This semester we will learn methods to answer questions we may have about our data. We will need to make sure that our data is appropriate to answer our question OR/AND we will need to adjust our question to use the data that we have. In particular, the context in which the data is collected can impact the types of conclusions we can make.
+
+In this worksheet, we will discuss some basic data manipulation, conditional statements, subsetting, and creating new variables.
+
+## 1. Making sense of a dataset
+
+Consider the built-in dataset `quakes` which contains information about earthquakes occurring near Fiji islands since 1964. It is always important to take a quick look at the dataset before doing anything with it:
+
+```{r}
+# Take a look at the data frame
+head(quakes)
+```
+
+How many rows and columns are there in the dataset?
+
+```{r}
+# Dimensions of the dataset
+dim(quakes)
+nrow(quakes)
+ncol(quakes)
+```
+
+There are `r nrow(quakes)` rows and `r ncol(quakes)` in the dataset. What does one row represent? What does one column represent?
+
+Get information about dimensions, types of variables, and some examples of values with `str()`:
+
+```{r}
+# Dimensions of the dataset
+str(quakes)
+```
+
+Also, the context of our data is very important! Get more information about the dataset by running `?quakes` in **your console**. Let's take a look at a map of the Fiji islands:
+
+![](https://www.researchgate.net/profile/A-Ferreira-6/publication/296431643/figure/fig8/AS:340810848587793@1458267046923/Bathymetry-around-the-Tonga-Kermadec-trench-along-with-the-regions-seismicity.png)
+
+#### **Try it! In the dataset, we are given the latitude and longitude of the earthquakes. Representing these two variables will help us identify where the earthquakes occurred. Make a plot!**
+
+```{r}
+# Write and submit code here!
+plot(quakes$long, quakes$lat,
+     xlab='longitude',
+     ylab='latitude')
+```
+
+**Write sentences here!**
+
+Let's demonstrate some concepts for basic data manipulation while getting more familiar with this dataset.
+
+## 2. Setting conditions
+
+### a. Conditional statements
+
+We can use conditional statements to focus on some parts of the data. Below are some essential comparison operators for setting conditions in R:
+
+-   `==` means equality
+
+-   `!=` means "not equal"
+
+-   `<` means "less than" while `<=` means "less than or equal to"
+
+-   `>` means "greater than" while `>=` means "greater than or equal to"
+
+-   `x %in% y` is looking for the value of `x` in the object `y`
+
+When testing for conditions, we will get a logical value: `TRUE` or `FALSE` (also abbreviated `T` or `F`). Let's test some conditions for a value of a number `x`:
+
+```{r}
+# Create an object to test about
+x <- 4
+
+# Testing for equality
+x == 4
+x == 5
+```
+
+What if we test some conditions on a vector?
+
+```{r}
+# Create an object to test about
+v <- c(4,5.1,6,4.5,4)
+
+# Testing for equality
+v == 4
+```
+
+We get a vector of logical values. Now, when we have many elements in our vector, wouldn't it be nice to be able to count `TRUE`'s and `FALSE`'s? A logical value of `TRUE` actually corresponds to a numeric value of 1, while a logical value of `FALSE` corresponds to a numeric value of 0.
+
+```{r}
+# Let's count the number of TRUE's
+sum(v == 4)
+
+# And find the proportion of TRUE's
+mean(v == 4)
+```
+
+The conditional statement `v == 4` returned 2 `TRUE`'s, or 40% of `TRUE`'s.
+
+#### **Try it! What proportion of earthquakes in the `quakes` dataset had a magnitude greater than or equal to 5?**
+
+```{r}
+# Write and submit code here!
+sum(quakes$mag >= 5)
+```
+
+**Write sentences here!**
+
+### b. Connectors
+
+We can also combine logical statements with connectors:
+
+-   `&` means that both statements should be TRUE
+
+-   `|` means that at least one of the statement is TRUE
+
+```{r}
+# Testing for equality OR greater than 4
+v == 4 | v > 4
+
+# Testing for less than 5 and greater than 5
+v < 5 & v > 5
+
+# Does it make sense?
+```
+
+#### **Try it! How many earthquakes in the `quakes` dataset have a depth between 70 and 300 km?**
+
+```{r}
+# Write and submit code here!
+sum(70 <= quakes$depth & quakes$depth <= 300)
+
+```
+
+**Write sentences here!**
+
+### c. Use of conditional statements
+
+We can decide to execute some code depending on the result of a conditional statement (`TRUE` or `FALSE`). Let's try the `ifelse` function with the following structure: `ifelse(condition, code to run if it's TRUE, code to run if it's FALSE)`.
+
+```{r}
+# Test values of x, and display some text
+ifelse(x == 4, "x is 4", "x is not 4")
+ifelse(x == 5, "x is 4", "x is not 4")
+
+# Test if values in the vector are 4, and display some text
+ifelse(v == 4, "value is 4", "value is not 4")
+```
+
+Let's try an example with character values:
+
+```{r}
+# Define a character vector
+v_basket <- c('Apple', 'Orange', 'Passion fruit', 'Banana') 
+
+# Is there an apple in the basket?
+ifelse("apple" %in% v_basket, 
+       "There is an apple in the basket", 
+       "There is no apple in the basket")
+
+# Does it make sense? No, because apple appears with a capital A in v_basket
+# Try this:
+ifelse("Apple" %in% v_basket, 
+       "There is an apple in the basket", 
+       "There is no apple in the basket")
+```
+
+## 3. Subsetting based on conditions
+
+### a. Using indexing
+
+We discussed indexing with brackets `[]` before. Here are some examples:
+
+```{r}
+# Index the 15th value in the variable mag in quakes
+quakes$mag[15]
+
+# Or index the 15th row in the dataset quakes
+quakes[15, ]
+
+# What's the difference between these two pieces of code?
+```
+
+What if we had some conditions to index rows?
+
+```{r}
+# Index the variable mag in quakes for magnitude greater than or equal to 6
+quakes$mag[quakes$mag >= 6]
+
+# Or index the dataset quakes for magnitude greater than or equal to 6
+quakes[quakes$mag >= 6, ]
+```
+
+### b. Using `filter()` for dataframes
+
+The `filter` function comes from the `tidyverse` package and follows this structure: `filter((dataframe, condition)`.
+
+```{r}
+# First upload the tidyverse package
+library(tidyverse)
+
+# Index the variable mag in quakes for magnitude greater than or equal to 6
+filter(quakes, mag >= 6)
+```
+
+#### **Try it! Create a subset of `quakes` which contains earthquakes with a magnitude greater than or equal to 5 and a depth greater than 70 km. Save it as `bigdeep_quakes` in your environment. Are all of these earthquakes located in the same area?**
+
+```{r}
+# Write and submit code here!
+bigdeep_quakes <- filter(quakes, mag >= 5 & depth > 70)
+plot(bigdeep_quakes$long, bigdeep_quakes$lat,
+     xlab='longitude',
+     ylab='latitude')
+
+```
+
+**Write sentences here!**
+
+## 4. Creating a new variable based on conditions
+
+### a. Using `$`
+
+We can create a new object within a dataframe using `$`. Earthquakes with a magnitude of 5 or higher are considered dangerous as they can cause some damage, while earthquakes with a magnitude less than 5 don't usually cause important damage.
+
+```{r}
+# Create a new variable to convert depth in miles
+quakes$mag_cat <- ifelse(quakes$mag >= 5, "Damage", "No damage")
+```
+
+### b. Using `mutate()` for dataframes
+
+The `mutate` function also comes from the `tidyverse` package and follows this structure: `mutate(dataframe, new_var = ...)`. Earthquakes with a depth of 300 km or higher are considered deep.
+
+```{r}
+# Create a new variable to categorize each eartquake as deep or not
+mutate(quakes, depth_cat = ifelse(quakes$depth >= 300, "Deep", "Not deep"))
+
+# Note: the variable is not saved in the dataframe
+quakes
+
+# we would need to save the updated dataframe to be able to use this new variable
+quakes <- mutate(quakes, depth_cat = ifelse(quakes$depth >= 300, "Deep", "Not deep"))
+```
+
+#### **Try it! Create a new variable `trench` in `quakes` to categorize earthquakes as emerging from the New Hebrides trench (located North-West) or from the Tonga and Kermadec trenches (both located East). Compare the distribution of magnitude using `boxplot(quakes$mag ~ quakes$trench)` and make sure to add a title and labels.**
+
+```{r}
+# Write and submit code here!
+quakes <- mutate(quakes, 
+                 trench = ifelse(quakes$long < 175, 'New Hebrides', 'Tonga/Kermadec'))
+boxplot(quakes$mag ~ quakes$trench,
+        xlab='Trench name',
+        ylab='Earthquake magnitude')
+
+sum(quakes$trench == 'New Hebrides')
+sum(quakes$trench == 'Tonga/Kermadec')
+
+
+```
+
+**Write sentences here!**
+
+But comparing two boxplots is not enough to state that there is a difference between two groups or not. We will learn more next week!
