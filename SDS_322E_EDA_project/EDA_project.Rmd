@@ -25,7 +25,9 @@ knitr::opts_chunk$set(echo = TRUE,
 
 ## 1) Introduction
 
-Our group chose the Water Quality Sampling Data. After sifting through the variety of datasets offered to us by the city of Austin, we were drawn the most towards this dataset. We were interested in this data because of its relationship to the Austin environment. By analyzing this data, we can make informed decisions as civilians regarding our water usage and what we need to improve on in terms of city water quality. By using data analysis techniques and this dataset, we can become more educated about the source and quality of our drinking water and recreational bodies of water and track how water quality changes as the city continues to develop and grow over time.
+**Group members: Austine Do, Graceanne Becker, Seojin Yoon**
+
+Our group chose the Water Quality Sampling Data (https://data.austintexas.gov/Environment/Water-Quality-Sampling-Data/5tye-7ray/about_data). After sifting through the variety of datasets offered to us by the city of Austin, we were drawn the most towards this dataset. We were interested in this data because of its relationship to the Austin environment. By analyzing this data, we can make informed decisions as civilians regarding our water usage and what we need to improve on in terms of city water quality. By using data analysis techniques and this dataset, we can become more educated about the source and quality of our drinking water and recreational bodies of water and track how water quality changes as the city continues to develop and grow over time.
 
 Our main variables of interest in this dataset include DATE, WATERSHED, SITE_TYPE, PARAM_TYPE, PARAMETER, RESULT, and UNIT. Some of the question our data analysis will answer include:
 
